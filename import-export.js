@@ -38,7 +38,7 @@ const ImportExport = {
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `nancycycle_export_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = `cycletrack_export_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
     },
     
@@ -307,7 +307,7 @@ const ImportExport = {
         const blob = new Blob([dataStr], { type: 'application/json' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `nancycycle_backup_${new Date().toISOString().split('T')[0]}.json`;
+        link.download = `cycletrack_backup_${new Date().toISOString().split('T')[0]}.json`;
         link.click();
     },
     

@@ -1,9 +1,10 @@
-const CACHE_NAME = 'nancycycle-v1';
+const CACHE_NAME = 'cycletrack-v1';
 const urlsToCache = [
-  '/nancycycle/',
-  '/nancycycle/index.html',
-  '/nancycycle/app.js',
-  '/nancycycle/manifest.json'
+  '/cycletrack/',
+  '/cycletrack/index.html',
+  '/cycletrack/app.js',
+  '/cycletrack/manifest.json',
+  '/cycletrack/import-export.js'
 ];
 
 self.addEventListener('install', event => {
