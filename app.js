@@ -275,14 +275,19 @@ function calculateNextPeriods(allEntries) {
 
     const lastPeriod = new Date(periodEntries[periodEntries.length - 1].date);
 
-    // Calculate next period
+    // Calculate next period (start date)
     const nextPeriod = new Date(lastPeriod);
     nextPeriod.setDate(nextPeriod.getDate() + avgCycle);
     result.nextPeriod = nextPeriod;
     result.daysToNext = Math.ceil((nextPeriod - today) / (1000 * 60 * 60 * 24));
 
-    // Calculate second period
-    const nextPeriod2 = new Date(nextPeriod);
+    // Calculate second period - starts AFTER next period ends + cycle length
+    // Period length (typically 3-5 days from settings)
+    const periodLength = currentData.periodLength || 5;
+    const nextPeriodEnd = new Date(nextPeriod);
+    nextPeriodEnd.setDate(nextPeriodEnd.getDate() + periodLength);
+    
+    const nextPeriod2 = new Date(nextPeriodEnd);
     nextPeriod2.setDate(nextPeriod2.getDate() + avgCycle);
     result.nextPeriod2 = nextPeriod2;
     result.daysToNext2 = Math.ceil((nextPeriod2 - today) / (1000 * 60 * 60 * 24));
