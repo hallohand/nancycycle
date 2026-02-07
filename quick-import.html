@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NancyCycle - Schnellimport</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #FFF5F7;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #E91E63;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 100px 70px 70px 80px 60px 60px 60px;
+            gap: 5px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        
+        .form-row.header {
+            font-weight: bold;
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .form-row input, .form-row select {
+            padding: 8px 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            width: 100%;
+        }
+        
+        .form-row input:focus {
+            outline: none;
+            border-color: #FF6B9D;
+        }
+        
+        .btn {
+            background: #FF6B9D;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #FF6B9D;
+            border: 2px solid #FF6B9D;
+            margin-top: 10px;
+        }
+        
+        .output {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .output.show {
+            display: block;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        
+        .hint {
+            background: #E3F2FD;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .hint strong {
+            color: #1976D2;
+        }
+        
+        .legend {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+        }
+        
+        .legend h3 {
+            margin-bottom: 10px;
+            color: #E91E63;
+        }
+        
+        .legend-item {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌸 NancyCycle Import-Hilfe</h1>
+    <p class="subtitle">Trage die Daten aus der PDF schnell ein</p>
+    
+    <div class="hint">
+        <strong>💡 Tipp:</strong> Öffne die Femometer-PDF auf einem Gerät und gib die Daten hier ein. 
+        Mit Tab kannst du schnell zwischen den Feldern springen!
+    </div>
+    
+    <div class="legend">
+        <h3>📋 Legende für Kurzeingabe:</h3>
+        <div class="legend-item"><strong>Periode:</strong> L=Leicht, M=Mittel, S=Stark, SP=Schmierblutung</div>
+        <div class="legend-item"><strong>Zervix:</strong> T=Trocken, K=Klebrig, C=Cremig, W=Wässrig, E=Eiweißartig</div>
+        <div class="legend-item"><strong>LH:</strong> +=Positiv, -=Negativ</div>
+        <div class="legend-item"><strong>Sex:</strong> G=Geschützt, U=Ungeschützt</div>
+    </div>
+
+    <div class="form-row header">
+        <div>Datum</div>
+        <div>Temp</div>
+        <div>Per</div>
+        <div>Zervix</div>
+        <div>LH</div>
+        <div>Sex</div>
+        <div>Notiz</div>
+    </div>
+    
+    <div id="inputRows"></div>
+    
+    <button class="btn" onclick="generateCSV()">📄 CSV Generieren</button>
+    <button class="btn btn-secondary" onclick="addMoreRows()">+ 10 weitere Zeilen</button>
+    
+    <div class="output" id="outputSection">
+        <h3>📋 Deine CSV-Daten:</h3>
+        <textarea id="csvOutput" readonly></textarea>
+        <button class="btn" onclick="copyToClipboard()" style="margin-top: 10px;">📋 Kopieren</button>
+    </div>
+
+    <script>
+        // Erstelle 20 Eingabezeilen
+        function createRows(count = 20) {
+            const container = document.getElementById('inputRows');
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - count);
+            
+            for (let i = 0; i < count; i++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0];
+                
+                const row = document.createElement('div');
+                row.className = 'form-row';
+                row.innerHTML = `
+                    <input type="date" class="date" value="${dateStr}">
+                    <input type="text" class="temp" placeholder="36.5" style="text-align: center;">
+                    <select class="period">
+                        <option value=""></option>
+                        <option value="light">L</option>
+                        <option value="medium">M</option>
+                        <option value="heavy">S</option>
+                        <option value="spotting">SP</option>
+                    </select>
+                    <select class="cervix">
+                        <option value=""></option>
+                        <option value="dry">T</option>
+                        <option value="sticky">K</option>
+                        <option value="creamy">C</option>
+                        <option value="watery">W</option>
+                        <option value="eggwhite">E</option>
+                    </select>
+                    <select class="lh">
+                        <option value=""></option>
+                        <option value="positive">+</option>
+                        <option value="negative">-</option>
+                    </select>
+                    <select class="sex">
+                        <option value=""></option>
+                        <option value="protected">G</option>
+                        <option value="unprotected">U</option>
+                    </select>
+                    <input type="text" class="notes" placeholder="Notiz">
+                `;
+                container.appendChild(row);
+            }
+        }
+        
+        function generateCSV() {
+            const rows = document.querySelectorAll('.form-row:not(.header)');
+            let csv = 'Datum,Temperatur,Periode,Zervix,LH-Test,Geschlechtsverkehr,Stimmung,Symptome,Notizen\n';
+            
+            rows.forEach(row => {
+                const date = row.querySelector('.date').value;
+                const temp = row.querySelector('.temp').value;
+                const period = row.querySelector('.period').value;
+                const cervix = row.querySelector('.cervix').value;
+                const lh = row.querySelector('.lh').value;
+                const sex = row.querySelector('.sex').value;
+                const notes = row.querySelector('.notes').value;
+                
+                // Nur Zeilen mit Daten exportieren
+                if (date && (temp || period || cervix || lh || sex || notes)) {
+                    csv += `${date},${temp || ''},${period || ''},${cervix || ''},${lh || ''},${sex || ''},,,${notes || ''}\n`;
+                }
+            });
+            
+            document.getElementById('csvOutput').value = csv;
+            document.getElementById('outputSection').classList.add('show');
+        }
+        
+        function copyToClipboard() {
+            const textarea = document.getElementById('csvOutput');
+            textarea.select();
+            document.execCommand('copy');
+            alert('✅ CSV in Zwischenablage kopiert! Jetzt in NancyCycle einfügen.');
+        }
+        
+        function addMoreRows() {
+            createRows(10);
+        }
+        
+        // Initial 20 Zeilen erstellen
+        createRows(20);
+        
+        // Tab-Navigation verbessern
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                const active = document.activeElement;
+                if (active.tagName === 'SELECT') {
+                    // Nach Tab von Select, fokussiere nächstes Input
+                    setTimeout(() => {
+                        const inputs = Array.from(document.querySelectorAll('input, select'));
+                        const currentIndex = inputs.indexOf(active);
+                        if (currentIndex > -1 && currentIndex < inputs.length - 1) {
+                            inputs[currentIndex + 1].focus();
+                        }
+                    }, 0);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
