@@ -120,6 +120,9 @@ function updateDashboard() {
         cycleDay = Math.floor((today - lastPeriodDate) / (1000 * 60 * 60 * 24)) + 1;
     }
 
+    // Heutiger Eintrag - MUSS vor getFertilityStatus definiert werden
+    const todayEntry = currentData.entries[todayStr];
+    
     // Get period predictions using new function
     const periodPrediction = calculateNextPeriods(allEntries);
     
@@ -144,9 +147,6 @@ function updateDashboard() {
     
     // Fruchtbarkeitsstatus - nur anzeigen wenn wir genug Daten haben
     const fertilityStatus = getFertilityStatus(cycleDay, daysToNextOvulation, ovulationConfidence, todayEntry, periodPrediction.nextPeriod, ovulationInfo);
-    
-    // Heutiger Eintrag
-    const todayEntry = currentData.entries[todayStr];
     
     // Dashboard HTML erstellen
     let html = `
