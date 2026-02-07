@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#FF6B9D">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>NancyCycle - Zyklus Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --primary: #FF6B9D;
+            --primary-dark: #E91E63;
+            --secondary: #4ECDC4;
+            --background: #FFF5F7;
+            --card: #FFFFFF;
+            --text: #333333;
+            --text-light: #666666;
+            --border: #FFE4EC;
+            --fertile: #4CAF50;
+            --ovulation: #FF9800;
+            --period: #E91E63;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+            padding-bottom: 80px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(233, 30, 99, 0.3);
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+        
+        .header .subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+        
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--primary-dark);
+        }
+        
+        .status-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .status-card {
+            background: var(--background);
+            border-radius: 12px;
+            padding: 15px 10px;
+            text-align: center;
+            border: 2px solid var(--border);
+        }
+        
+        .status-card.active {
+            border-color: var(--primary);
+            background: white;
+        }
+        
+        .status-card .icon {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+        
+        .status-card .label {
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+        
+        .status-card .value {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--primary-dark);
+        }
+        
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.4);
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            box-shadow: none;
+        }
+        
+        .nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+        
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .nav-item.active {
+            color: var(--primary);
+        }
+        
+        .nav-item .icon {
+            font-size: 1.5rem;
+            display: block;
+            margin-bottom: 2px;
+        }
+        
+        .nav-item .label {
+            font-size: 0.7rem;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text);
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .mood-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .mood-option {
+            flex: 1;
+            min-width: 60px;
+            text-align: center;
+            padding: 10px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .mood-option.selected {
+            border-color: var(--primary);
+            background: var(--background);
+        }
+        
+        .mood-option .emoji {
+            font-size: 1.5rem;
+            display: block;
+        }
+        
+        .mood-option .text {
+            font-size: 0.75rem;
+            margin-top: 5px;
+        }
+        
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+        
+        .calendar-header {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-light);
+            padding: 10px 5px;
+            font-weight: 600;
+        }
+        
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .calendar-day:hover {
+            background: var(--background);
+        }
+        
+        .calendar-day.today {
+            border-color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .calendar-day.period {
+            background: var(--period);
+            color: white;
+        }
+        
+        .calendar-day.fertile {
+            background: var(--fertile);
+            color: white;
+        }
+        
+        .calendar-day.ovulation {
+            background: var(--ovulation);
+            color: white;
+        }
+        
+        .calendar-day .temp {
+            font-size: 0.65rem;
+            margin-top: 2px;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 250px;
+            margin-top: 20px;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.8rem;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .symptoms-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .symptom-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        
+        .symptom-item.selected {
+            border-color: var(--primary);
+            background: var(--background);
+        }
+        
+        .cervix-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .cervix-option {
+            padding: 15px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+        }
+        
+        .cervix-option.selected {
+            border-color: var(--primary);
+            background: var(--background);
+        }
+        
+        .lh-test {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .lh-option {
+            width: 60px;
+            height: 60px;
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        
+        .lh-option.selected {
+            border-color: var(--primary);
+            background: var(--background);
+        }
+
+        .sex-options {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .sex-option {
+            flex: 1;
+            max-width: 120px;
+            padding: 15px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .sex-option.selected {
+            border-color: var(--primary);
+            background: var(--background);
+        }
+
+        .sex-option .emoji {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .saved-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--fertile);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .saved-indicator.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌸 NancyCycle</h1>
+        <div class="subtitle">Dein persönlicher Zyklus-Tracker</div>
+    </div>
+
+    <div class="saved-indicator" id="savedIndicator">✓ Gespeichert</div>
+
+    <!-- HOME VIEW -->
+    <div id="homeView" class="container">
+        <div class="status-cards">
+            <div class="status-card" id="cycleDayCard">
+                <div class="icon">📅</div>
+                <div class="label">Zyklustag</div>
+                <div class="value" id="cycleDay">-</div>
+            </div>
+            <div class="status-card" id="fertilityCard">
+                <div class="icon">🌱</div>
+                <div class="label">Fruchtbarkeit</div>
+                <div class="value" id="fertilityStatus">-</div>
+            </div>
+            <div class="status-card">
+                <div class="icon">⏰</div>
+                <div class="label">Nächste Periode</div>
+                <div class="value" id="nextPeriod">-</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Heute</div>
+            <button class="btn" onclick="showAddEntry()">📊 Tagesdaten eingeben</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Übersicht</div>
+            <button class="btn btn-secondary" onclick="showChart()">📈 Temperaturkurve</button>
+        </div>
+    </div>
+
+    <!-- ADD ENTRY VIEW -->
+    <div id="addEntryView" class="container hidden">
+        <div class="card">
+            <div class="card-title">📅 Datum</div>
+            <div class="form-group">
+                <input type="date" id="entryDate" value="">
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🌡️ Basaltemperatur (BBT)</div>
+            <div class="form-group">
+                <input type="number" id="temperature" step="0.01" placeholder="z.B. 36.50" min="35" max="40">
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🩸 Periode</div>
+            <div class="form-group">
+                <select id="periodFlow">
+                    <option value="">Keine Periode</option>
+                    <option value="light">Leicht</option>
+                    <option value="medium">Mittel</option>
+                    <option value="heavy">Stark</option>
+                    <option value="spotting">Schmierblutung</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">💧 Zervixschleim</div>
+            <div class="cervix-options">
+                <div class="cervix-option" data-value="dry" onclick="selectCervix(this)">
+                    <div>🏜️</div>
+                    <div>Trocken</div>
+                </div>
+                <div class="cervix-option" data-value="sticky" onclick="selectCervix(this)">
+                    <div>🍯</div>
+                    <div>Klebrig</div>
+                </div>
+                <div class="cervix-option" data-value="creamy" onclick="selectCervix(this)">
+                    <div>🥛</div>
+                    <div>Cremig</div>
+                </div>
+                <div class="cervix-option" data-value="watery" onclick="selectCervix(this)">
+                    <div>💧</div>
+                    <div>Wässrig</div>
+                </div>
+                <div class="cervix-option" data-value="eggwhite" onclick="selectCervix(this)">
+                    <div>🥚</div>
+                    <div>Eiweißartig</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🧪 LH-Test</div>
+            <div class="lh-test">
+                <div class="lh-option" data-value="negative" onclick="selectLH(this)">➖</div>
+                <div class="lh-option" data-value="positive" onclick="selectLH(this)">➕</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">💕 Geschlechtsverkehr</div>
+            <div class="sex-options">
+                <div class="sex-option" data-value="unprotected" onclick="selectSex(this)">
+                    <span class="emoji">💏</span>
+                    <div>Ungeschützt</div>
+                </div>
+                <div class="sex-option" data-value="protected" onclick="selectSex(this)">
+                    <span class="emoji">🛡️</span>
+                    <div>Geschützt</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">😊 Stimmung</div>
+            <div class="mood-options">
+                <div class="mood-option" data-value="happy" onclick="selectMood(this)">
+                    <span class="emoji">😊</span>
+                    <span class="text">Glücklich</span>
+                </div>
+                <div class="mood-option" data-value="neutral" onclick="selectMood(this)">
+                    <span class="emoji">😐</span>
+                    <span class="text">Neutral</span>
+                </div>
+                <div class="mood-option" data-value="sad" onclick="selectMood(this)">
+                    <span class="emoji">😢</span>
+                    <span class="text">Traurig</span>
+                </div>
+                <div class="mood-option" data-value="irritable" onclick="selectMood(this)">
+                    <span class="emoji">😤</span>
+                    <span class="text">Gereizt</span>
+                </div>
+                <div class="mood-option" data-value="anxious" onclick="selectMood(this)">
+                    <span class="emoji">😰</span>
+                    <span class="text">Ängstlich</span>
+                </div>
+                <div class="mood-option" data-value="energetic" onclick="selectMood(this)">
+                    <span class="emoji">⚡</span>
+                    <span class="text">Energiegeladen</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🩺 Symptome</div>
+            <div class="symptoms-grid">
+                <div class="symptom-item" data-value="cramps" onclick="toggleSymptom(this)">
+                    <span>🔴</span>
+                    <span>Krämpfe</span>
+                </div>
+                <div class="symptom-item" data-value="bloating" onclick="toggleSymptom(this)">
+                    <span>🎈</span>
+                    <span>Blähungen</span>
+                </div>
+                <div class="symptom-item" data-value="headache" onclick="toggleSymptom(this)">
+                    <span>🤕</span>
+                    <span>Kopfschmerzen</span>
+                </div>
+                <div class="symptom-item" data-value="backache" onclick="toggleSymptom(this)">
+                    <span>💪</span>
+                    <span>Rückenschmerzen</span>
+                </div>
+                <div class="symptom-item" data-value="tender" onclick="toggleSymptom(this)">
+                    <span>👙</span>
+                    <span>Brustspannen</span>
+                </div>
+                <div class="symptom-item" data-value="fatigue" onclick="toggleSymptom(this)">
+                    <span>😴</span>
+                    <span>Müdigkeit</span>
+                </div>
+                <div class="symptom-item" data-value="acne" onclick="toggleSymptom(this)">
+                    <span>🔴</span>
+                    <span>Hautunreinheiten</span>
+                </div>
+                <div class="symptom-item" data-value="nausea" onclick="toggleSymptom(this)">
+                    <span>🤢</span>
+                    <span>Übelkeit</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="form-group">
+                <label>📝 Notizen</label>
+                <input type="text" id="notes" placeholder="Zusätzliche Notizen...">
+            </div>
+        </div>
+
+        <button class="btn" onclick="saveEntry()">💾 Speichern</button>
+        <button class="btn btn-secondary" onclick="showHome()" style="margin-top: 10px;">❌ Abbrechen</button>
+    </div>
+
+    <!-- CHART VIEW -->
+    <div id="chartView" class="container hidden">
+        <div class="card">
+            <div class="card-title">📈 Temperaturkurve</div>
+            <div class="chart-container">
+                <canvas id="tempChart"></canvas>
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #FF6B9D;"></div>
+                    <span>Temperatur</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4CAF50;"></div>
+                    <span>Coverline</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #E91E63;"></div>
+                    <span>Periode</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📅 Zyklus-Kalender</div>
+            <div style="text-align: center; margin-bottom: 15px;">
+                <button onclick="changeMonth(-1)" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">◀</button>
+                <span id="currentMonth" style="margin: 0 20px; font-weight: 600;"></span>
+                <button onclick="changeMonth(1)" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">▶</button>
+            </div>
+            <div class="calendar" id="calendar">
+                <!-- Calendar will be generated -->
+            </div>
+        </div>
+
+        <button class="btn btn-secondary" onclick="showHome()">← Zurück</button>
+    </div>
+
+    <!-- NAVIGATION -->
+    <nav class="nav">
+        <div class="nav-item active" onclick="showHome()">
+            <span class="icon">🏠</span>
+            <span class="label">Start</span>
+        </div>
+        <div class="nav-item" onclick="showAddEntry()">
+            <span class="icon">➕</span>
+            <span class="label">Eintrag</span>
+        </div>
+        <div class="nav-item" onclick="showChart()">
+            <span class="icon">📊</span>
+            <span class="label">Kurve</span>
+        </div>
+    </nav>
+
+    <script src="app.js"></script>
+</body>
+</html>

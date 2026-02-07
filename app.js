@@ -1,0 +1,485 @@
+// NancyCycle - Zyklus Tracker App
+
+// Data Storage
+const STORAGE_KEY = 'nancycycle_data';
+
+// Initialize
+let currentData = loadData();
+let currentView = 'home';
+let selectedDate = new Date().toISOString().split('T')[0];
+let currentChart = null;
+let currentMonth = new Date();
+
+// Load data from localStorage
+function loadData() {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+        return JSON.parse(stored);
+    }
+    return {
+        entries: {},
+        cycleLength: 28,
+        periodLength: 5,
+        lutealPhase: 14
+    };
+}
+
+// Save data to localStorage
+function saveData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentData));
+}
+
+// Show saved indicator
+function showSaved() {
+    const indicator = document.getElementById('savedIndicator');
+    indicator.classList.add('show');
+    setTimeout(() => {
+        indicator.classList.remove('show');
+    }, 2000);
+}
+
+// Navigation
+function showHome() {
+    hideAllViews();
+    document.getElementById('homeView').classList.remove('hidden');
+    updateNav('home');
+    updateHomeDisplay();
+}
+
+function showAddEntry() {
+    hideAllViews();
+    document.getElementById('addEntryView').classList.remove('hidden');
+    updateNav('entry');
+    
+    // Set today's date
+    document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
+    
+    // Load existing data for today if any
+    loadEntryForDate(new Date().toISOString().split('T')[0]);
+}
+
+function showChart() {
+    hideAllViews();
+    document.getElementById('chartView').classList.remove('hidden');
+    updateNav('chart');
+    
+    setTimeout(() => {
+        renderChart();
+        renderCalendar();
+    }, 100);
+}
+
+function hideAllViews() {
+    document.getElementById('homeView').classList.add('hidden');
+    document.getElementById('addEntryView').classList.add('hidden');
+    document.getElementById('chartView').classList.add('hidden');
+}
+
+function updateNav(view) {
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    const navItems = document.querySelectorAll('.nav-item');
+    if (view === 'home') navItems[0].classList.add('active');
+    if (view === 'entry') navItems[1].classList.add('active');
+    if (view === 'chart') navItems[2].classList.add('active');
+}
+
+// Entry Form Handling
+function selectCervix(element) {
+    document.querySelectorAll('.cervix-option').forEach(el => el.classList.remove('selected'));
+    element.classList.add('selected');
+}
+
+function selectLH(element) {
+    document.querySelectorAll('.lh-option').forEach(el => el.classList.remove('selected'));
+    element.classList.add('selected');
+}
+
+function selectSex(element) {
+    document.querySelectorAll('.sex-option').forEach(el => el.classList.remove('selected'));
+    element.classList.add('selected');
+}
+
+function selectMood(element) {
+    document.querySelectorAll('.mood-option').forEach(el => el.classList.remove('selected'));
+    element.classList.add('selected');
+}
+
+function toggleSymptom(element) {
+    element.classList.toggle('selected');
+}
+
+function loadEntryForDate(date) {
+    const entry = currentData.entries[date];
+    if (!entry) return;
+    
+    // Load temperature
+    if (entry.temperature) {
+        document.getElementById('temperature').value = entry.temperature;
+    }
+    
+    // Load period
+    if (entry.period) {
+        document.getElementById('periodFlow').value = entry.period;
+    }
+    
+    // Load cervix
+    if (entry.cervix) {
+        document.querySelectorAll('.cervix-option').forEach(el => {
+            if (el.dataset.value === entry.cervix) {
+                el.classList.add('selected');
+            }
+        });
+    }
+    
+    // Load LH test
+    if (entry.lhTest) {
+        document.querySelectorAll('.lh-option').forEach(el => {
+            if (el.dataset.value === entry.lhTest) {
+                el.classList.add('selected');
+            }
+        });
+    }
+    
+    // Load sex
+    if (entry.sex) {
+        document.querySelectorAll('.sex-option').forEach(el => {
+            if (el.dataset.value === entry.sex) {
+                el.classList.add('selected');
+            }
+        });
+    }
+    
+    // Load mood
+    if (entry.mood) {
+        document.querySelectorAll('.mood-option').forEach(el => {
+            if (el.dataset.value === entry.mood) {
+                el.classList.add('selected');
+            }
+        });
+    }
+    
+    // Load symptoms
+    if (entry.symptoms) {
+        document.querySelectorAll('.symptom-item').forEach(el => {
+            if (entry.symptoms.includes(el.dataset.value)) {
+                el.classList.add('selected');
+            }
+        });
+    }
+    
+    // Load notes
+    if (entry.notes) {
+        document.getElementById('notes').value = entry.notes;
+    }
+}
+
+function saveEntry() {
+    const date = document.getElementById('entryDate').value;
+    if (!date) {
+        alert('Bitte wähle ein Datum aus');
+        return;
+    }
+    
+    const entry = {
+        date: date,
+        temperature: parseFloat(document.getElementById('temperature').value) || null,
+        period: document.getElementById('periodFlow').value || null,
+        cervix: document.querySelector('.cervix-option.selected')?.dataset.value || null,
+        lhTest: document.querySelector('.lh-option.selected')?.dataset.value || null,
+        sex: document.querySelector('.sex-option.selected')?.dataset.value || null,
+        mood: document.querySelector('.mood-option.selected')?.dataset.value || null,
+        symptoms: Array.from(document.querySelectorAll('.symptom-item.selected')).map(el => el.dataset.value),
+        notes: document.getElementById('notes').value || null
+    };
+    
+    currentData.entries[date] = entry;
+    saveData();
+    
+    // Clear form
+    clearForm();
+    
+    showSaved();
+    showHome();
+}
+
+function clearForm() {
+    document.getElementById('temperature').value = '';
+    document.getElementById('periodFlow').value = '';
+    document.getElementById('notes').value = '';
+    document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+}
+
+// Home Display Updates
+function updateHomeDisplay() {
+    const today = new Date().toISOString().split('T')[0];
+    const cycleInfo = calculateCycleInfo();
+    
+    // Update cycle day
+    document.getElementById('cycleDay').textContent = cycleInfo.cycleDay || '-';
+    
+    // Update fertility status
+    const fertilityEl = document.getElementById('fertilityStatus');
+    if (cycleInfo.isFertile) {
+        fertilityEl.textContent = '🌱 Fruchtbar';
+        document.getElementById('fertilityCard').classList.add('active');
+    } else if (cycleInfo.isPeriod) {
+        fertilityEl.textContent = '🩸 Periode';
+        document.getElementById('fertilityCard').classList.remove('active');
+    } else {
+        fertilityEl.textContent = '😌 Nicht fruchtbar';
+        document.getElementById('fertilityCard').classList.remove('active');
+    }
+    
+    // Update next period prediction
+    const nextPeriod = predictNextPeriod();
+    if (nextPeriod) {
+        const daysUntil = Math.ceil((new Date(nextPeriod) - new Date()) / (1000 * 60 * 60 * 24));
+        document.getElementById('nextPeriod').textContent = daysUntil <= 0 ? 'Heute' : `in ${daysUntil} Tagen`;
+    } else {
+        document.getElementById('nextPeriod').textContent = '-';
+    }
+}
+
+function calculateCycleInfo() {
+    const entries = Object.values(currentData.entries);
+    if (entries.length === 0) {
+        return { cycleDay: null, isFertile: false, isPeriod: false };
+    }
+    
+    // Sort by date
+    entries.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    // Find last period
+    const lastPeriod = entries.filter(e => e.period).pop();
+    if (!lastPeriod) {
+        return { cycleDay: null, isFertile: false, isPeriod: false };
+    }
+    
+    const lastPeriodDate = new Date(lastPeriod.date);
+    const today = new Date();
+    const cycleDay = Math.floor((today - lastPeriodDate) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Check if currently on period
+    const todayEntry = currentData.entries[today.toISOString().split('T')[0]];
+    const isPeriod = todayEntry && todayEntry.period;
+    
+    // Calculate fertile window (days 10-16 in a 28-day cycle)
+    const isFertile = cycleDay >= 10 && cycleDay <= 16 && !isPeriod;
+    
+    return { cycleDay, isFertile, isPeriod };
+}
+
+function predictNextPeriod() {
+    const entries = Object.values(currentData.entries);
+    if (entries.length === 0) return null;
+    
+    // Find last period
+    const periodEntries = entries.filter(e => e.period);
+    if (periodEntries.length === 0) return null;
+    
+    const lastPeriod = periodEntries[periodEntries.length - 1];
+    const lastPeriodDate = new Date(lastPeriod.date);
+    
+    // Add average cycle length
+    const nextPeriod = new Date(lastPeriodDate);
+    nextPeriod.setDate(nextPeriod.getDate() + (currentData.cycleLength || 28));
+    
+    return nextPeriod.toISOString().split('T')[0];
+}
+
+// Chart Rendering
+function renderChart() {
+    const ctx = document.getElementById('tempChart').getContext('2d');
+    
+    // Get last 30 days of data
+    const days = [];
+    const temps = [];
+    const coverline = [];
+    const periodDays = [];
+    
+    const today = new Date();
+    for (let i = 29; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        days.push(date.getDate());
+        
+        const entry = currentData.entries[dateStr];
+        if (entry && entry.temperature) {
+            temps.push(entry.temperature);
+            if (entry.period) {
+                periodDays.push(temps.length - 1);
+            }
+        } else {
+            temps.push(null);
+        }
+    }
+    
+    // Calculate coverline
+    const validTemps = temps.filter(t => t !== null);
+    if (validTemps.length >= 6) {
+        // Find the 6 highest temperatures before a sustained rise
+        const sorted = [...validTemps].sort((a, b) => b - a);
+        const coverlineValue = sorted[5]; // 6th highest
+        
+        for (let i = 0; i < temps.length; i++) {
+            coverline.push(coverlineValue);
+        }
+    }
+    
+    if (currentChart) {
+        currentChart.destroy();
+    }
+    
+    currentChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: days,
+            datasets: [
+                {
+                    label: 'Temperatur',
+                    data: temps,
+                    borderColor: '#FF6B9D',
+                    backgroundColor: 'rgba(255, 107, 157, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointBackgroundColor: temps.map((t, i) => periodDays.includes(i) ? '#E91E63' : '#FF6B9D'),
+                    tension: 0.3,
+                    spanGaps: true
+                },
+                {
+                    label: 'Coverline',
+                    data: coverline,
+                    borderColor: '#4CAF50',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        title: (items) => `Tag ${items[0].label}`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    min: 35.5,
+                    max: 37.5,
+                    title: {
+                        display: true,
+                        text: '°C'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Calendar Rendering
+function renderCalendar() {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    
+    document.getElementById('currentMonth').textContent = 
+        new Date(year, month).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+    
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    const calendarEl = document.getElementById('calendar');
+    calendarEl.innerHTML = '';
+    
+    // Weekday headers
+    const weekdays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    weekdays.forEach(day => {
+        const header = document.createElement('div');
+        header.className = 'calendar-header';
+        header.textContent = day;
+        calendarEl.appendChild(header);
+    });
+    
+    // Empty cells before first day
+    for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
+        const empty = document.createElement('div');
+        calendarEl.appendChild(empty);
+    }
+    
+    // Days
+    const today = new Date().toISOString().split('T')[0];
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const entry = currentData.entries[dateStr];
+        
+        const dayEl = document.createElement('div');
+        dayEl.className = 'calendar-day';
+        dayEl.innerHTML = `<div>${day}</div>`;
+        
+        if (dateStr === today) {
+            dayEl.classList.add('today');
+        }
+        
+        if (entry) {
+            if (entry.period) {
+                dayEl.classList.add('period');
+            } else if (entry.cervix === 'eggwhite' || entry.lhTest === 'positive') {
+                dayEl.classList.add('ovulation');
+            } else if (entry.cervix === 'watery') {
+                dayEl.classList.add('fertile');
+            }
+            
+            if (entry.temperature) {
+                dayEl.innerHTML += `<div class="temp">${entry.temperature.toFixed(1)}°</div>`;
+            }
+        }
+        
+        dayEl.onclick = () => {
+            document.getElementById('entryDate').value = dateStr;
+            showAddEntry();
+            loadEntryForDate(dateStr);
+        };
+        
+        calendarEl.appendChild(dayEl);
+    }
+}
+
+function changeMonth(delta) {
+    currentMonth.setMonth(currentMonth.getMonth() + delta);
+    renderCalendar();
+}
+
+// Initialize app
+document.addEventListener('DOMContentLoaded', () => {
+    showHome();
+    
+    // Register service worker for PWA
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('Service Worker registered'))
+            .catch(err => console.log('Service Worker failed', err));
+    }
+});
+
+// Handle date change in entry form
+document.getElementById('entryDate')?.addEventListener('change', (e) => {
+    clearForm();
+    loadEntryForDate(e.target.value);
+});
