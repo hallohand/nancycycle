@@ -712,43 +712,50 @@
         <div class="card">
             <div class="card-title">📥 Daten importieren</div>
             <p style="margin-bottom: 15px; color: var(--text-light); font-size: 0.9rem;">
-                Importiere Daten aus Femometer oder anderen Apps im CSV-Format.
+                Importiere Daten aus <strong>Femometer</strong> oder anderen Apps. Die App erkennt automatisch das Format!
             </p>
             <div class="form-group">
                 <label>CSV-Datei auswählen:</label>
-                <input type="file" id="importFile" accept=".csv,.json" onchange="handleImport(event)">
+                <input type="file" id="importFile" accept=".csv,.json" onchange="handleImport(event)" style="width: 100%; padding: 10px; border: 2px dashed var(--border); border-radius: 10px;">
             </div>
             <div class="form-group">
-                <label>Oder CSV-Text einfügen:</label>
-                <textarea id="importText" rows="6" placeholder="Datum,Temperatur,Periode,..." style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 10px; font-family: monospace;"></textarea>
+                <label>Oder CSV-Text direkt einfügen:</label>
+                <textarea id="importText" rows="8" placeholder="Kopiere hier deine Femometer-Daten rein...&#10;Datum,Zyklustag,Periodentag,Farbe,..." style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 10px; font-family: monospace; font-size: 0.85rem;"></textarea>
             </div>
-            <button class="btn" onclick="importFromText()">📥 Importieren</button>
+            <button class="btn" onclick="importFromText()">📥 Jetzt importieren</button>
+            <div id="importResult" style="margin-top: 15px; display: none;"></div>
         </div>
 
         <div class="card">
             <div class="card-title">📤 Daten exportieren / Backup</div>
             <p style="margin-bottom: 15px; color: var(--text-light); font-size: 0.9rem;">
-                Erstelle ein Backup deiner Daten. Wichtig: Daten werden nur lokal gespeichert!
+                Erstelle ein Backup deiner Daten. Wichtig: Alle Daten bleiben nur auf diesem Gerät!
             </p>
             <button class="btn" onclick="ImportExport.exportToCSV()" style="margin-bottom: 10px;">
                 📄 Als CSV exportieren
             </button>
             <button class="btn btn-secondary" onclick="ImportExport.exportToJSON()">
-                💾 Als JSON Backup
+                💾 Komplettes JSON Backup
             </button>
         </div>
 
         <div class="card">
-            <div class="card-title">❓ Import-Hilfe</div>
+            <div class="card-title">✅ Femometer-Import Anleitung</div>
             <div style="font-size: 0.9rem; color: var(--text-light); line-height: 1.6;">
-                <p style="margin-bottom: 10px;"><strong>Spalten für CSV:</strong></p>
-                <code style="background: var(--background); padding: 10px; border-radius: 5px; display: block; overflow-x: auto;">
-                    Datum,Temperatur,Periode,Zervix,LH-Test,Sex,Stimmung,Symptome,Notizen
-                </code>
-                <p style="margin-top: 10px; margin-bottom: 5px;"><strong>Beispiel:</strong></p>
-                <code style="background: var(--background); padding: 10px; border-radius: 5px; display: block; overflow-x: auto; font-size: 0.8rem;">
-                    2026-01-15,36.45,light,eggwhite,positive,unprotected,happy,cramps;fatigue,Morgen
-                </code>
+                <p style="margin-bottom: 10px;"><strong>Unterstützte Formate:</strong></p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li>✅ Femometer CSV Export (mit allen Spalten)</li>
+                    <li>✅ NancyCycle Standard-Format</li>
+                    <li>✅ JSON Backup-Dateien</li>
+                </ul>
+                <p style="margin-bottom: 10px;"><strong>Automatische Konvertierung:</strong></p>
+                <ul style="margin-left: 20px;">
+                    <li>Datum: DD.MM.YYYY → YYYY-MM-DD</li>
+                    <li>Temperatur: 36.86°C → 36.86</li>
+                    <li>Periode: Flussmenge → light/medium/heavy</li>
+                    <li>Zervix: Deutscher Text → Codes</li>
+                    <li>Symptome: Deutsche Namen → interne Keys</li>
+                </ul>
             </div>
         </div>
 

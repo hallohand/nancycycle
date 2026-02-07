@@ -120,30 +120,50 @@ function importFromText() {
         return;
     }
 
-    let result;
     let importedCount = 0;
-    let errors = [];
+    const resultDiv = document.getElementById('importResult');
 
     try {
         if (text.startsWith('{')) {
             // JSON Import
             importedCount = ImportExport.importFromJSON(text);
-            result = { success: importedCount, errors: [] };
         } else {
-            // CSV Import
+            // CSV Import (automatische Format-Erkennung)
             importedCount = ImportExport.importFromCSV(text);
-            result = { success: importedCount, errors: [] };
         }
 
         if (importedCount > 0) {
             showSaved();
-            alert(`✅ ${importedCount} Einträge erfolgreich importiert!`);
+            resultDiv.innerHTML = `
+                <div style="background: #E8F5E9; border-left: 4px solid #4CAF50; padding: 15px; border-radius: 5px;">
+                    <strong>✅ Import erfolgreich!</strong><br>
+                    ${importedCount} Einträge wurden importiert.
+                </div>
+            `;
+            resultDiv.style.display = 'block';
             document.getElementById('importText').value = '';
+            
+            // Nach 3 Sekunden zur Startseite
+            setTimeout(() => {
+                showHome();
+            }, 3000);
         } else {
-            alert('⚠️ Keine Einträge importiert. Bitte prüfe das Format.');
+            resultDiv.innerHTML = `
+                <div style="background: #FFF3E0; border-left: 4px solid #FF9800; padding: 15px; border-radius: 5px;">
+                    <strong>⚠️ Keine Einträge importiert</strong><br>
+                    Bitte prüfe das Format der Daten.
+                </div>
+            `;
+            resultDiv.style.display = 'block';
         }
     } catch (e) {
-        alert('❌ Fehler beim Import: ' + e.message);
+        resultDiv.innerHTML = `
+            <div style="background: #FFEBEE; border-left: 4px solid #F44336; padding: 15px; border-radius: 5px;">
+                <strong>❌ Fehler beim Import</strong><br>
+                ${e.message}
+            </div>
+        `;
+        resultDiv.style.display = 'block';
         console.error(e);
     }
 }

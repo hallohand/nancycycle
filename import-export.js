@@ -42,11 +42,19 @@ const ImportExport = {
         link.click();
     },
     
-    // CSV Import
+    // CSV Import mit Format-Erkennung
     importFromCSV: function(csvText) {
         const lines = csvText.trim().split('\n');
         const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
         
+        // Prüfe ob es das Femometer-Format ist
+        const isFemometerFormat = headers.includes('Datum') && headers.includes('Zyklustag');
+        
+        if (isFemometerFormat) {
+            return this.importFemometerCSV(csvText);
+        }
+        
+        // Standard CSV Import
         let importedCount = 0;
         
         for (let i = 1; i < lines.length; i++) {
@@ -76,6 +84,160 @@ const ImportExport = {
         
         saveData();
         return importedCount;
+    },
+    
+    // Femometer CSV Import (spezielles Format)
+    importFemometerCSV: function(csvText) {
+        const lines = csvText.trim().split('\n');
+        let importedCount = 0;
+        let errors = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            try {
+                // Parse CSV mit Anführungszeichen-Handling
+                const values = this.parseCSVLine(line);
+                
+                // Datum konvertieren (DD.MM.YYYY -> YYYY-MM-DD)
+                const dateStr = values[0];
+                const dateParts = dateStr.split('.');
+                const date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+                
+                // Temperatur extrahieren (36.86°C -> 36.86)
+                const tempStr = values[6];
+                const temperature = tempStr ? parseFloat(tempStr.replace('°C', '').trim()) : null;
+                
+                // Periode bestimmen
+                const periodDay = values[2];
+                const flowAmount = values[4];
+                let period = null;
+                if (periodDay && periodDay !== '') {
+                    // Map Flussmenge zu Perioden-Stärke
+                    const flowMap = {
+                        'Wenig': 'light',
+                        'Mittel': 'medium',
+                        'Viel': 'heavy'
+                    };
+                    period = flowMap[flowAmount] || 'medium';
+                }
+                
+                // Zervixschleim
+                const cervixRaw = values[9];
+                const cervixMap = {
+                    'Trocken': 'dry',
+                    'Klebrig': 'sticky',
+                    'Cremig': 'creamy',
+                    'Wässrig': 'watery',
+                    'Eiweiß': 'eggwhite',
+                    'Eiweißartig': 'eggwhite'
+                };
+                const cervix = cervixMap[cervixRaw] || null;
+                
+                // Sex
+                const sexRaw = values[7];
+                let sex = null;
+                if (sexRaw && sexRaw.includes('Ungeschützt')) {
+                    sex = 'unprotected';
+                } else if (sexRaw && sexRaw.includes('Geschützt')) {
+                    sex = 'protected';
+                }
+                
+                // LH Test
+                const lhRaw = values[13];
+                let lhTest = null;
+                if (lhRaw === 'Hoch') {
+                    lhTest = 'positive';
+                }
+                
+                // Stimmung
+                const moodRaw = values[11];
+                const moodMap = {
+                    'Traurig': 'sad',
+                    'Gefühlvoll': 'emotional',
+                    'Glücklich': 'happy',
+                    'Energiegeladen': 'energetic',
+                    'Ängstlich': 'anxious',
+                    'Gereizt': 'irritable'
+                };
+                const mood = moodMap[moodRaw] || null;
+                
+                // Symptome parsen
+                const symptomsRaw = values[12];
+                let symptoms = [];
+                if (symptomsRaw) {
+                    symptoms = symptomsRaw.split(',').map(s => {
+                        // Map deutsche Symptome zu internen Keys
+                        const symptomMap = {
+                            'Krämpfe': 'cramps',
+                            'Empfindliche Brüste': 'tender',
+                            'Brustschmerzen': 'tender',
+                            'Wunde Nippel': 'tender',
+                            'Schmerzen im rechten Unterbauch': 'cramps',
+                            'Ovulationsschmerzen': 'cramps',
+                            'Erkältung': 'headache',
+                            'Blähungen': 'bloating',
+                            'Kopfschmerzen': 'headache',
+                            'Rückenschmerzen': 'backache',
+                            'Müdigkeit': 'fatigue',
+                            'Hautunreinheiten': 'acne',
+                            'Übelkeit': 'nausea'
+                        };
+                        return symptomMap[s.trim()] || s.trim();
+                    }).filter(s => s);
+                }
+                
+                // Notizen (inkl. Schmerzen)
+                const painRaw = values[5];
+                const notes = painRaw && painRaw !== '' ? `Schmerzen: ${painRaw}` : null;
+                
+                // Entry erstellen
+                const entry = {
+                    date: date,
+                    temperature: temperature,
+                    period: period,
+                    cervix: cervix,
+                    lhTest: lhTest,
+                    sex: sex,
+                    mood: mood,
+                    symptoms: symptoms,
+                    notes: notes
+                };
+                
+                // Nur speichern wenn wir Daten haben
+                if (date && (temperature || period || cervix || sex || symptoms.length > 0 || notes)) {
+                    currentData.entries[date] = entry;
+                    importedCount++;
+                }
+            } catch (e) {
+                errors.push(`Zeile ${i + 1}: ${e.message}`);
+            }
+        }
+        
+        saveData();
+        console.log('Import errors:', errors);
+        return importedCount;
+    },
+    
+    // Hilfsfunktion zum Parsen von CSV-Zeilen
+    parseCSVLine: function(line) {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let char of line) {
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                values.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        values.push(current.trim());
+        return values;
     },
     
     // Femometer-ähnliches Format Import
