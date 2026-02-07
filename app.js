@@ -130,10 +130,9 @@ function updateDashboard() {
     let nextOvulationDate = null;
     let daysToNextOvulation = null;
     
-    if (lastPeriod) {
-        const avgCycleLength = calculateAverageCycleLength();
+    if (lastPeriod && periodPrediction.nextPeriod) {
         // Eisprung ist typischerweise 14 Tage vor der nächsten Periode
-        nextOvulationDate = new Date(nextPeriodDate);
+        nextOvulationDate = new Date(periodPrediction.nextPeriod);
         nextOvulationDate.setDate(nextOvulationDate.getDate() - 14);
         daysToNextOvulation = Math.ceil((nextOvulationDate - today) / (1000 * 60 * 60 * 24));
     }
@@ -750,17 +749,25 @@ function renderCalendar() {
             dayEl.classList.add('today');
         }
 
-        // Check if this day is a predicted period
+        // Check if this day is within a predicted period window (first 4 days)
         if (periodPrediction.nextPeriod) {
-            const nextPeriodStr = periodPrediction.nextPeriod.toISOString().split('T')[0];
-            if (dateStr === nextPeriodStr) {
+            const nextPeriodStart = new Date(periodPrediction.nextPeriod);
+            const nextPeriodEnd = new Date(nextPeriodStart);
+            nextPeriodEnd.setDate(nextPeriodEnd.getDate() + 3); // 4 days total
+            
+            const currentDate = new Date(dateStr);
+            if (currentDate >= nextPeriodStart && currentDate <= nextPeriodEnd) {
                 dayEl.classList.add('predicted-period');
             }
         }
 
         if (periodPrediction.nextPeriod2) {
-            const nextPeriod2Str = periodPrediction.nextPeriod2.toISOString().split('T')[0];
-            if (dateStr === nextPeriod2Str) {
+            const nextPeriod2Start = new Date(periodPrediction.nextPeriod2);
+            const nextPeriod2End = new Date(nextPeriod2Start);
+            nextPeriod2End.setDate(nextPeriod2End.getDate() + 3); // 4 days total
+            
+            const currentDate = new Date(dateStr);
+            if (currentDate >= nextPeriod2Start && currentDate <= nextPeriod2End) {
                 dayEl.classList.add('predicted-period-2');
             }
         }
