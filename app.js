@@ -2,7 +2,7 @@
 // Modularer Aufbau für bessere Wartbarkeit
 
 const STORAGE_KEY = 'cycletrack_data';
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.2';
 
 // Global state
 let currentData = loadData();
@@ -136,13 +136,13 @@ function updateDashboard() {
         nextPeriodDate = predictions.nextPeriodStart.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
     }
     
-    // Next ovulation text
+    // Next ovulation text (always use ovulationNext which is guaranteed to be in the future)
     let nextOvulationText = '-';
     let nextOvulationDate = '';
-    if (predictions.ovulation1) {
-        const daysTo = Math.ceil((predictions.ovulation1 - today) / (1000 * 60 * 60 * 24));
+    if (predictions.ovulationNext) {
+        const daysTo = Math.ceil((predictions.ovulationNext - today) / (1000 * 60 * 60 * 24));
         nextOvulationText = formatDays(daysTo);
-        nextOvulationDate = predictions.ovulation1.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+        nextOvulationDate = predictions.ovulationNext.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
     }
     
     // Build dashboard HTML
@@ -241,18 +241,18 @@ function getFertilityStatus(cycleDay, predictions, todayEntry, today) {
         return { class: 'ovulation', icon: '🔥', title: 'Peak-Fruchtbarkeit', subtitle: 'LH-Anstieg erkannt' };
     }
     
-    // Check if in fertile window
-    if (predictions.ovulation1) {
-        const daysToOv = Math.ceil((predictions.ovulation1 - today) / (1000 * 60 * 60 * 24));
+    // Check if in fertile window (use ovulationNext which is always in the future)
+    if (predictions.ovulationNext) {
+        const daysToOv = Math.ceil((predictions.ovulationNext - today) / (1000 * 60 * 60 * 24));
         
         if (daysToOv >= -1 && daysToOv <= 1) {
             return { class: 'ovulation', icon: '🥚', title: 'Eisprung nahe', subtitle: 'Höchste Fruchtbarkeit' };
         }
-        if (daysToOv >= -5 && daysToOv <= 2) {
+        if (daysToOv >= 1 && daysToOv <= 5) {
             return { class: 'fertile', icon: '🌱', title: 'Fruchtbar', subtitle: `Eisprung in ${daysToOv} Tagen` };
         }
-        if (daysToOv < -1) {
-            return { class: 'normal', icon: '😌', title: 'Nicht fruchtbar', subtitle: 'Nach Eisprung' };
+        if (daysToOv > 5) {
+            return { class: 'normal', icon: '😌', title: 'Niedrige Fruchtbarkeit', subtitle: `Eisprung in ${daysToOv} Tagen` };
         }
     }
     
@@ -543,20 +543,31 @@ function renderCalendar() {
         
         if (dateStr === today) dayEl.classList.add('today');
         
-        // Check predictions
+        // Check predictions - Periods (priority 1)
         if (isDateInRange(currentDate, predictions.nextPeriodStart, predictions.nextPeriodEnd)) {
             dayEl.classList.add('predicted-period');
         } else if (isDateInRange(currentDate, predictions.period2Start, predictions.period2End)) {
             dayEl.classList.add('predicted-period-2');
-        } else if (isDateInRange(currentDate, predictions.fertile1Start, predictions.fertile1End)) {
+        }
+        // Fertile windows (priority 2) - show all fertile windows
+        else if (isDateInRange(currentDate, predictions.fertile1Start, predictions.fertile1End)) {
             dayEl.classList.add('predicted-fertile');
             if (isSameDate(currentDate, predictions.ovulation1)) {
                 dayEl.classList.add('predicted-ovulation');
+                dayEl.innerHTML += `<div class="ov-label">🥚</div>`;
             }
         } else if (isDateInRange(currentDate, predictions.fertile2Start, predictions.fertile2End)) {
             dayEl.classList.add('predicted-fertile-2');
             if (isSameDate(currentDate, predictions.ovulation2)) {
                 dayEl.classList.add('predicted-ovulation');
+                dayEl.innerHTML += `<div class="ov-label">🥚</div>`;
+            }
+        }
+        // Mark ovulationNext specially if not in fertile window (shouldn't happen but just in case)
+        if (predictions.ovulationNext && isSameDate(currentDate, predictions.ovulationNext)) {
+            if (!dayEl.classList.contains('predicted-fertile') && !dayEl.classList.contains('predicted-fertile-2')) {
+                dayEl.classList.add('predicted-ovulation');
+                dayEl.innerHTML += `<div class="ov-label">🥚</div>`;
             }
         }
         
@@ -586,9 +597,11 @@ function calculatePredictions() {
         nextPeriodStart: null, nextPeriodEnd: null,
         period2Start: null, period2End: null,
         fertile1Start: null, fertile1End: null, ovulation1: null,
-        fertile2Start: null, fertile2End: null, ovulation2: null
+        fertile2Start: null, fertile2End: null, ovulation2: null,
+        ovulationNext: null, ovulationNextAfter: null
     };
     
+    const today = new Date();
     const allEntries = Object.values(currentData.entries);
     const periodEntries = allEntries.filter(e => e.period).sort((a, b) => 
         new Date(a.date) - new Date(b.date)
@@ -601,33 +614,63 @@ function calculatePredictions() {
     const lutealPhase = currentData.lutealPhase || 14;
     const periodLength = currentData.periodLength || 5;
     
-    // Next period
+    // Calculate periods
     const nextPeriod = new Date(lastPeriod);
     nextPeriod.setDate(nextPeriod.getDate() + avgCycle);
     result.nextPeriodStart = nextPeriod;
     result.nextPeriodEnd = new Date(nextPeriod);
     result.nextPeriodEnd.setDate(result.nextPeriodEnd.getDate() + periodLength - 1);
     
-    // Period 2
     const period2 = new Date(result.nextPeriodEnd);
     period2.setDate(period2.getDate() + 1 + avgCycle - periodLength);
     result.period2Start = period2;
     result.period2End = new Date(period2);
     result.period2End.setDate(result.period2End.getDate() + periodLength - 1);
     
-    // Fertile window 1
-    result.ovulation1 = new Date(nextPeriod);
-    result.ovulation1.setDate(result.ovulation1.getDate() - lutealPhase);
-    result.fertile1Start = new Date(result.ovulation1);
-    result.fertile1Start.setDate(result.fertile1Start.getDate() - 5);
-    result.fertile1End = result.ovulation1;
+    // Calculate ovulations for both cycles
+    const ovulation1 = new Date(nextPeriod);
+    ovulation1.setDate(ovulation1.getDate() - lutealPhase);
     
-    // Fertile window 2
-    result.ovulation2 = new Date(period2);
-    result.ovulation2.setDate(result.ovulation2.getDate() - lutealPhase);
-    result.fertile2Start = new Date(result.ovulation2);
+    const ovulation2 = new Date(period2);
+    ovulation2.setDate(ovulation2.getDate() - lutealPhase);
+    
+    const period3 = new Date(result.period2End);
+    period3.setDate(period3.getDate() + 1 + avgCycle - periodLength);
+    const ovulation3 = new Date(period3);
+    ovulation3.setDate(ovulation3.getDate() - lutealPhase);
+    
+    // Determine which ovulation is the NEXT one (in the future)
+    if (ovulation1 >= today) {
+        // First ovulation is still in the future
+        result.ovulationNext = ovulation1;
+        result.ovulationNextAfter = ovulation2;
+        result.ovulation1 = ovulation1;
+        result.fertile1Start = new Date(ovulation1);
+        result.fertile1Start.setDate(result.fertile1Start.getDate() - 5);
+        result.fertile1End = ovulation1;
+    } else if (ovulation2 >= today) {
+        // First ovulation is past, second is next
+        result.ovulationNext = ovulation2;
+        result.ovulationNextAfter = ovulation3;
+        result.ovulation1 = ovulation1; // Keep for calendar display
+        result.fertile1Start = new Date(ovulation1);
+        result.fertile1Start.setDate(result.fertile1Start.getDate() - 5);
+        result.fertile1End = ovulation1;
+    } else {
+        // Both are past, use third
+        result.ovulationNext = ovulation3;
+        result.ovulationNextAfter = null;
+        result.ovulation1 = ovulation1;
+        result.fertile1Start = new Date(ovulation1);
+        result.fertile1Start.setDate(result.fertile1Start.getDate() - 5);
+        result.fertile1End = ovulation1;
+    }
+    
+    // Always set ovulation2 and fertile2 for calendar display
+    result.ovulation2 = ovulation2;
+    result.fertile2Start = new Date(ovulation2);
     result.fertile2Start.setDate(result.fertile2Start.getDate() - 5);
-    result.fertile2End = result.ovulation2;
+    result.fertile2End = ovulation2;
     
     return result;
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cycletrack-v5'; // v1.2.1 - Extended dashboard with fertility status
+const CACHE_NAME = 'cycletrack-v6'; // v1.2.2 - Fixed ovulation prediction to always show future dates
 const urlsToCache = [
   '/cycletrack/',
   '/cycletrack/index.html',
