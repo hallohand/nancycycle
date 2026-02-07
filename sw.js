@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cycletrack-v6'; // v1.2.2 - Fixed ovulation prediction to always show future dates
+const CACHE_NAME = 'cycletrack-v7'; // v1.2.4 - Fixed timezone issues in calendar rendering
 const urlsToCache = [
   '/cycletrack/',
   '/cycletrack/index.html',

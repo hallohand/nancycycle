@@ -2,7 +2,7 @@
 // Modularer Aufbau für bessere Wartbarkeit
 
 const STORAGE_KEY = 'cycletrack_data';
-const APP_VERSION = '1.2.2';
+const APP_VERSION = '1.2.4';
 
 // Global state
 let currentData = loadData();
@@ -517,15 +517,22 @@ function renderCalendar() {
         calendarEl.appendChild(header);
     });
     
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    // Fix: Create date at noon to avoid timezone issues
+    const firstDayOfMonth = new Date(year, month, 1, 12, 0, 0);
+    const firstDay = firstDayOfMonth.getDay();
+    const daysInMonth = new Date(year, month + 1, 0, 12, 0, 0).getDate();
     
-    // Empty cells
-    for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
+    // Empty cells - Monday start (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+    // We want: Mo Di Mi Do Fr Sa So
+    // So we need to shift: Sunday should be at the end
+    const emptyCells = firstDay === 0 ? 6 : firstDay - 1;
+    for (let i = 0; i < emptyCells; i++) {
         calendarEl.appendChild(document.createElement('div'));
     }
     
-    const today = new Date().toISOString().split('T')[0];
+    // Get today's date string in local timezone
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
     // Get predictions
     const predictions = calculatePredictions();
@@ -533,7 +540,8 @@ function renderCalendar() {
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const entry = currentData.entries[dateStr];
-        const currentDate = new Date(dateStr);
+        // Fix: Create date at noon to avoid timezone issues
+        const currentDate = new Date(year, month, day, 12, 0, 0);
         
         const dayEl = document.createElement('div');
         dayEl.className = 'calendar-day';
