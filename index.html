@@ -297,7 +297,7 @@
             background: var(--surface);
             display: flex;
             justify-content: space-around;
-            padding: 8px 0;
+            padding: 8px 0 20px 0;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
             z-index: 100;
             border-top: 1px solid var(--divider);
@@ -305,17 +305,32 @@
         
         .nav-item {
             flex: 1;
-            text-align: center;
-            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 4px;
             cursor: pointer;
             transition: all 0.2s;
             color: var(--text-secondary);
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 500;
+            min-height: 56px;
+            gap: 4px;
         }
         
         .nav-item.active {
             color: var(--primary);
+        }
+        
+        .nav-item:active {
+            transform: scale(0.95);
+        }
+        
+        .nav-icon {
+            width: 28px;
+            height: 28px;
+            stroke-width: 2;
         }
         
         /* Chart */
@@ -647,10 +662,37 @@
 
     <!-- NAVIGATION -->
     <nav class="nav">
-        <div class="nav-item active" onclick="showHome()">Übersicht</div>
-        <div class="nav-item" onclick="showAddEntry()">Eintrag</div>
-        <div class="nav-item" onclick="showChart()">Kurve</div>
-        <div class="nav-item" onclick="showImportExport()">Daten</div>
+        <div class="nav-item active" onclick="showHome()">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>Übersicht</span>
+        </div>
+        <div class="nav-item" onclick="showAddEntry()">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="16"></line>
+                <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+            <span>Eintrag</span>
+        </div>
+        <div class="nav-item" onclick="showChart()">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+            <span>Kurve</span>
+        </div>
+        <div class="nav-item" onclick="showImportExport()">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Import</span>
+        </div>
     </nav>
 
     <script src="import-export.js"></script>
