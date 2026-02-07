@@ -114,19 +114,14 @@ function updateDashboard() {
     
     // Berechne aktuellen Zyklustag
     let cycleDay = 0;
-    let daysToNextPeriod = null;
-    let nextPeriodDate = null;
-    
+
     if (lastPeriod) {
         const lastPeriodDate = new Date(lastPeriod.date);
         cycleDay = Math.floor((today - lastPeriodDate) / (1000 * 60 * 60 * 24)) + 1;
-        
-        // Nächste Periode berechnen
-        const avgCycleLength = calculateAverageCycleLength();
-        nextPeriodDate = new Date(lastPeriodDate);
-        nextPeriodDate.setDate(nextPeriodDate.getDate() + avgCycleLength);
-        daysToNextPeriod = Math.ceil((nextPeriodDate - today) / (1000 * 60 * 60 * 24));
     }
+
+    // Get period predictions using new function
+    const periodPrediction = calculateNextPeriods(allEntries);
     
     // Finde Eisprung (Temperaturanstieg)
     const ovulationInfo = findOvulation(allEntries);
@@ -167,11 +162,20 @@ function updateDashboard() {
             </div>
             
             <!-- Nächste Periode -->
-            <div class="dashboard-card ${daysToNextPeriod <= 3 ? 'urgent' : ''}">
+            <div class="dashboard-card ${periodPrediction.daysToNext <= 3 ? 'urgent' : ''}">
                 <div class="card-label">Nächste Periode</div>
-                <div class="card-value">${daysToNextPeriod !== null ? formatDays(daysToNextPeriod) : '-'}</div>
-                <div class="card-hint">${nextPeriodDate ? formatDate(nextPeriodDate) : ''}</div>
+                <div class="card-value">${periodPrediction.daysToNext !== null ? formatDays(periodPrediction.daysToNext) : '-'}</div>
+                <div class="card-hint">${periodPrediction.nextPeriod ? formatDate(periodPrediction.nextPeriod) : ''}</div>
             </div>
+
+            <!-- Second period prediction -->
+            ${periodPrediction.nextPeriod2 ? `
+            <div class="dashboard-card">
+                <div class="card-label">Übernächste Periode</div>
+                <div class="card-value">${formatDays(periodPrediction.daysToNext2)}</div>
+                <div class="card-hint">${formatDate(periodPrediction.nextPeriod2)}</div>
+            </div>
+            ` : ''}
             
             <!-- Nächster Eisprung -->
             <div class="dashboard-card ${daysToNextOvulation >= -2 && daysToNextOvulation <= 2 ? 'highlight' : ''}">
@@ -229,12 +233,12 @@ function calculateAverageCycleLength() {
     const periodEntries = Object.values(currentData.entries)
         .filter(e => e.period)
         .sort((a, b) => new Date(a.date) - new Date(b.date));
-    
+
     if (periodEntries.length < 2) return 28; // Default
-    
+
     let totalDays = 0;
     let count = 0;
-    
+
     for (let i = 1; i < periodEntries.length; i++) {
         const prev = new Date(periodEntries[i - 1].date);
         const curr = new Date(periodEntries[i].date);
@@ -244,8 +248,52 @@ function calculateAverageCycleLength() {
             count++;
         }
     }
-    
+
     return count > 0 ? Math.round(totalDays / count) : 28;
+}
+
+function calculateNextPeriods(allEntries) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const result = {
+        nextPeriod: null,
+        nextPeriod2: null, // Second period prediction
+        daysToNext: null,
+        daysToNext2: null
+    };
+
+    // Get individual luteal phase
+    const lutealPhase = calculateIndividualLutealPhase();
+    const avgCycle = calculateAverageCycleLength();
+
+    // Find last period
+    const periodEntries = allEntries.filter(e => e.period).sort((a, b) =>
+        new Date(a.date) - new Date(b.date)
+    );
+
+    if (periodEntries.length === 0) return result;
+
+    const lastPeriod = new Date(periodEntries[periodEntries.length - 1].date);
+
+    // Calculate next period
+    const nextPeriod = new Date(lastPeriod);
+    nextPeriod.setDate(nextPeriod.getDate() + avgCycle);
+    result.nextPeriod = nextPeriod;
+    result.daysToNext = Math.ceil((nextPeriod - today) / (1000 * 60 * 60 * 24));
+
+    // Calculate second period
+    const nextPeriod2 = new Date(nextPeriod);
+    nextPeriod2.setDate(nextPeriod2.getDate() + avgCycle);
+    result.nextPeriod2 = nextPeriod2;
+    result.daysToNext2 = Math.ceil((nextPeriod2 - today) / (1000 * 60 * 60 * 24));
+
+    return result;
+}
+
+function calculateIndividualLutealPhase() {
+    // Simplified: use stored value or default
+    return currentData.lutealPhase || 14;
 }
 
 function findOvulation(entries) {
@@ -662,16 +710,16 @@ function renderDefaultChart(ctx) {
 function renderCalendar() {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    
-    document.getElementById('currentMonth').textContent = 
+
+    document.getElementById('currentMonth').textContent =
         new Date(year, month).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-    
+
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
+
     const calendarEl = document.getElementById('calendar');
     calendarEl.innerHTML = '';
-    
+
     const weekdays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
     weekdays.forEach(day => {
         const header = document.createElement('div');
@@ -679,25 +727,44 @@ function renderCalendar() {
         header.textContent = day;
         calendarEl.appendChild(header);
     });
-    
+
     for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
         calendarEl.appendChild(document.createElement('div'));
     }
-    
+
     const today = new Date().toISOString().split('T')[0];
-    
+
+    // Get period predictions
+    const allEntries = Object.values(currentData.entries);
+    const periodPrediction = calculateNextPeriods(allEntries);
+
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const entry = currentData.entries[dateStr];
-        
+
         const dayEl = document.createElement('div');
         dayEl.className = 'calendar-day';
         dayEl.innerHTML = `<div>${day}</div>`;
-        
+
         if (dateStr === today) {
             dayEl.classList.add('today');
         }
-        
+
+        // Check if this day is a predicted period
+        if (periodPrediction.nextPeriod) {
+            const nextPeriodStr = periodPrediction.nextPeriod.toISOString().split('T')[0];
+            if (dateStr === nextPeriodStr) {
+                dayEl.classList.add('predicted-period');
+            }
+        }
+
+        if (periodPrediction.nextPeriod2) {
+            const nextPeriod2Str = periodPrediction.nextPeriod2.toISOString().split('T')[0];
+            if (dateStr === nextPeriod2Str) {
+                dayEl.classList.add('predicted-period-2');
+            }
+        }
+
         if (entry) {
             if (entry.period) {
                 dayEl.classList.add('period');
@@ -706,18 +773,18 @@ function renderCalendar() {
             } else if (entry.cervix === 'watery') {
                 dayEl.classList.add('fertile');
             }
-            
+
             if (entry.temperature) {
                 dayEl.innerHTML += `<div class="temp">${entry.temperature.toFixed(1)}°</div>`;
             }
         }
-        
+
         dayEl.onclick = () => {
             document.getElementById('entryDate').value = dateStr;
             showAddEntry();
             loadEntryForDate(dateStr);
         };
-        
+
         calendarEl.appendChild(dayEl);
     }
 }
