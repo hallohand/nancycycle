@@ -166,15 +166,6 @@ function updateDashboard() {
                 <div class="card-value">${periodPrediction.daysToNext !== null ? formatDays(periodPrediction.daysToNext) : '-'}</div>
                 <div class="card-hint">${periodPrediction.nextPeriod ? formatDate(periodPrediction.nextPeriod) : ''}</div>
             </div>
-
-            <!-- Second period prediction -->
-            ${periodPrediction.nextPeriod2 ? `
-            <div class="dashboard-card">
-                <div class="card-label">Übernächste Periode</div>
-                <div class="card-value">${formatDays(periodPrediction.daysToNext2)}</div>
-                <div class="card-hint">${formatDate(periodPrediction.nextPeriod2)}</div>
-            </div>
-            ` : ''}
             
             <!-- Nächster Eisprung -->
             <div class="dashboard-card ${daysToNextOvulation >= -2 && daysToNextOvulation <= 2 ? 'highlight' : ''}">
