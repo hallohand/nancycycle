@@ -98,6 +98,9 @@ function updateDashboard() {
     
     const allEntries = Object.values(currentData.entries);
     const hasData = allEntries.length > 0;
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const todayEntry = currentData.entries[todayStr];
     
     if (!hasData) {
         dashboard.innerHTML = `
@@ -110,7 +113,6 @@ function updateDashboard() {
         return;
     }
     
-    const today = new Date();
     const periodEntries = allEntries.filter(e => e.period).sort((a, b) => 
         new Date(a.date) - new Date(b.date)
     );
@@ -121,41 +123,180 @@ function updateDashboard() {
         cycleDay = Math.floor((today - new Date(lastPeriod.date)) / (1000 * 60 * 60 * 24)) + 1;
     }
     
-    // Simple period prediction
+    // Advanced predictions
+    const predictions = calculatePredictions();
+    const fertilityStatus = getFertilityStatus(cycleDay, predictions, todayEntry, today);
+    
+    // Next period text
     let nextPeriodText = '-';
-    if (lastPeriod) {
-        const avgCycle = calculateAverageCycleLength();
-        const nextPeriod = new Date(lastPeriod.date);
-        nextPeriod.setDate(nextPeriod.getDate() + avgCycle);
-        const daysToPeriod = Math.ceil((nextPeriod - today) / (1000 * 60 * 60 * 24));
-        nextPeriodText = daysToPeriod === 0 ? 'Heute' : 
-                        daysToPeriod === 1 ? 'Morgen' : 
-                        daysToPeriod < 0 ? `Vor ${Math.abs(daysToPeriod)} Tagen` :
-                        `In ${daysToPeriod} Tagen`;
+    let nextPeriodDate = '';
+    if (predictions.nextPeriodStart) {
+        const daysTo = Math.ceil((predictions.nextPeriodStart - today) / (1000 * 60 * 60 * 24));
+        nextPeriodText = formatDays(daysTo);
+        nextPeriodDate = predictions.nextPeriodStart.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
     }
     
-    dashboard.innerHTML = `
+    // Next ovulation text
+    let nextOvulationText = '-';
+    let nextOvulationDate = '';
+    if (predictions.ovulation1) {
+        const daysTo = Math.ceil((predictions.ovulation1 - today) / (1000 * 60 * 60 * 24));
+        nextOvulationText = formatDays(daysTo);
+        nextOvulationDate = predictions.ovulation1.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+    }
+    
+    // Build dashboard HTML
+    let html = `
         <div class="dashboard-grid">
-            <div class="dashboard-card main-status">
-                <div class="status-icon">🎭</div>
-                <div class="status-title">CycleTrack</div>
-                <div class="status-subtitle">v${APP_VERSION}</div>
+            <!-- Main Status Card -->
+            <div class="dashboard-card main-status ${fertilityStatus.class}">
+                <div class="status-icon">${fertilityStatus.icon}</div>
+                <div class="status-title">${fertilityStatus.title}</div>
+                <div class="status-subtitle">${fertilityStatus.subtitle}</div>
             </div>
+            
+            <!-- Cycle Day -->
             <div class="dashboard-card">
                 <div class="card-label">Zyklustag</div>
                 <div class="card-value">${cycleDay > 0 ? cycleDay : '-'}</div>
+                <div class="card-hint">${lastPeriod ? 'Seit letzter Periode' : 'Noch keine Daten'}</div>
             </div>
-            <div class="dashboard-card">
+            
+            <!-- Next Period -->
+            <div class="dashboard-card ${predictions.nextPeriodStart && Math.ceil((predictions.nextPeriodStart - today) / (1000 * 60 * 60 * 24)) <= 3 ? 'urgent' : ''}">
                 <div class="card-label">Nächste Periode</div>
                 <div class="card-value">${nextPeriodText}</div>
+                <div class="card-hint">${nextPeriodDate}</div>
             </div>
+            
+            <!-- Next Ovulation -->
+            <div class="dashboard-card ${predictions.ovulation1 && Math.ceil((predictions.ovulation1 - today) / (1000 * 60 * 60 * 24)) >= -2 && Math.ceil((predictions.ovulation1 - today) / (1000 * 60 * 60 * 24)) <= 2 ? 'highlight' : ''}">
+                <div class="card-label">Nächster Eisprung</div>
+                <div class="card-value">${nextOvulationText}</div>
+                <div class="card-hint">${nextOvulationDate}</div>
+            </div>
+            
+            <!-- Luteal Phase -->
             <div class="dashboard-card">
-                <div class="card-label">Einträge</div>
-                <div class="card-value">${allEntries.length}</div>
+                <div class="card-label">Lutealphase</div>
+                <div class="card-value">${currentData.lutealPhase || 14} Tage</div>
+                <div class="card-hint">Individueller Wert</div>
             </div>
-        </div>
-        <button class="btn" onclick="showAddEntry()" style="margin-top: 16px;">+ Tagesdaten eingeben</button>
     `;
+    
+    // Average cycle length
+    const avgCycle = calculateAverageCycleLength();
+    if (avgCycle > 0) {
+        html += `
+            <div class="dashboard-card">
+                <div class="card-label">Ø Zykluslänge</div>
+                <div class="card-value">${avgCycle} Tage</div>
+                <div class="card-hint">Aus ${periodEntries.length} Perioden</div>
+            </div>
+        `;
+    }
+    
+    // Last ovulation (if detected from BBT)
+    const lastOvulation = findLastOvulation(allEntries);
+    if (lastOvulation) {
+        const daysSince = Math.floor((today - lastOvulation) / (1000 * 60 * 60 * 24));
+        html += `
+            <div class="dashboard-card">
+                <div class="card-label">Letzter Eisprung</div>
+                <div class="card-value">${daysSince} Tage</div>
+                <div class="card-hint">${lastOvulation.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })} (BBT)</div>
+            </div>
+        `;
+    }
+    
+    // Today's data
+    if (todayEntry) {
+        html += `
+            <div class="dashboard-card today-data">
+                <div class="card-label">Heute eingetragen</div>
+                <div class="today-items">
+                    ${todayEntry.temperature ? `<span class="today-item">${todayEntry.temperature}°C</span>` : ''}
+                    ${todayEntry.period ? `<span class="today-item period">Periode: ${todayEntry.period}</span>` : ''}
+                    ${todayEntry.lhTest ? `<span class="today-item lh-${todayEntry.lhTest}">LH: ${todayEntry.lhTest === 'positive' ? 'Positiv' : 'Negativ'}</span>` : ''}
+                    ${todayEntry.cervix ? `<span class="today-item">${mapCervixValue(todayEntry.cervix)}</span>` : ''}
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    html += `<button class="btn" onclick="showAddEntry()" style="margin-top: 16px;">+ Tagesdaten eingeben</button>`;
+    
+    dashboard.innerHTML = html;
+}
+
+function getFertilityStatus(cycleDay, predictions, todayEntry, today) {
+    // Period has priority
+    if (cycleDay > 0 && cycleDay <= 5) {
+        return { class: 'period', icon: '🩸', title: 'Periode', subtitle: 'Menstruationsphase' };
+    }
+    
+    // LH test positive = peak fertility
+    if (todayEntry?.lhTest === 'positive') {
+        return { class: 'ovulation', icon: '🔥', title: 'Peak-Fruchtbarkeit', subtitle: 'LH-Anstieg erkannt' };
+    }
+    
+    // Check if in fertile window
+    if (predictions.ovulation1) {
+        const daysToOv = Math.ceil((predictions.ovulation1 - today) / (1000 * 60 * 60 * 24));
+        
+        if (daysToOv >= -1 && daysToOv <= 1) {
+            return { class: 'ovulation', icon: '🥚', title: 'Eisprung nahe', subtitle: 'Höchste Fruchtbarkeit' };
+        }
+        if (daysToOv >= -5 && daysToOv <= 2) {
+            return { class: 'fertile', icon: '🌱', title: 'Fruchtbar', subtitle: `Eisprung in ${daysToOv} Tagen` };
+        }
+        if (daysToOv < -1) {
+            return { class: 'normal', icon: '😌', title: 'Nicht fruchtbar', subtitle: 'Nach Eisprung' };
+        }
+    }
+    
+    // Cervical mucus indicators
+    if (todayEntry?.cervix === 'eggwhite') {
+        return { class: 'fertile', icon: '💧', title: 'Hohe Fruchtbarkeit', subtitle: 'Eiweißartiger Zervixschleim' };
+    }
+    if (todayEntry?.cervix === 'watery') {
+        return { class: 'fertile', icon: '💦', title: 'Steigende Fruchtbarkeit', subtitle: 'Wässriger Zervixschleim' };
+    }
+    
+    return { class: 'normal', icon: '😌', title: 'Niedrige Fruchtbarkeit', subtitle: 'Prä-ovulatorische Phase' };
+}
+
+function findLastOvulation(entries) {
+    const tempEntries = entries.filter(e => e.temperature).sort((a, b) => 
+        new Date(a.date) - new Date(b.date)
+    );
+    
+    for (let i = 6; i < tempEntries.length - 2; i++) {
+        const prev6 = tempEntries.slice(i - 6, i).map(e => e.temperature);
+        const next3 = tempEntries.slice(i, i + 3).map(e => e.temperature);
+        
+        const maxPrev6 = Math.max(...prev6);
+        const minNext3 = Math.min(...next3);
+        
+        if (minNext3 > maxPrev6 + 0.2) {
+            return new Date(tempEntries[i].date);
+        }
+    }
+    return null;
+}
+
+function formatDays(days) {
+    if (days === 0) return 'Heute';
+    if (days === 1) return 'Morgen';
+    if (days === -1) return 'Gestern';
+    if (days < 0) return `Vor ${Math.abs(days)} Tagen`;
+    return `In ${days} Tagen`;
+}
+
+function mapCervixValue(value) {
+    const map = { dry: 'Trocken', sticky: 'Klebrig', creamy: 'Cremig', watery: 'Wässrig', eggwhite: 'Eiweißartig' };
+    return map[value] || value;
 }
 
 function calculateAverageCycleLength() {

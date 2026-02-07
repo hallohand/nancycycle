@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cycletrack-v4'; // v1.1.2 - Fix null check for ovulationInfo
+const CACHE_NAME = 'cycletrack-v5'; // v1.2.1 - Extended dashboard with fertility status
 const urlsToCache = [
   '/cycletrack/',
   '/cycletrack/index.html',
