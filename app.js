@@ -62,16 +62,22 @@ function showChart() {
     }, 100);
 }
 
-function showImportExport() {
+function showSettings() {
     hideAllViews();
-    document.getElementById('importExportView').classList.remove('hidden');
-    updateNav('import');
+    document.getElementById('settingsView').classList.remove('hidden');
+    updateNav('settings');
+}
+
+// Legacy - redirects to settings
+function showImportExport() {
+    showSettings();
 }
 
 function hideAllViews() {
     document.getElementById('homeView').classList.add('hidden');
     document.getElementById('addEntryView').classList.add('hidden');
     document.getElementById('chartView').classList.add('hidden');
+    document.getElementById('settingsView').classList.add('hidden');
     document.getElementById('importExportView').classList.add('hidden');
 }
 
@@ -84,7 +90,7 @@ function updateNav(view) {
     if (view === 'home') navItems[0].classList.add('active');
     if (view === 'entry') navItems[1].classList.add('active');
     if (view === 'chart') navItems[2].classList.add('active');
-    if (view === 'import') navItems[3].classList.add('active');
+    if (view === 'settings') navItems[3].classList.add('active');
 }
 
 // DASHBOARD - Neue Funktion

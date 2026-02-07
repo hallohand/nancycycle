@@ -664,8 +664,37 @@
         </div>
     </div>
 
-    <!-- IMPORT/EXPORT VIEW -->
-    <div id="importExportView" class="container hidden">
+    <!-- SETTINGS VIEW -->
+    <div id="settingsView" class="container hidden">
+        <div class="card" style="text-align: center; background: linear-gradient(135deg, #FCE4EC 0%, #F8BBD0 100%);">
+            <div style="font-size: 2.5rem; margin-bottom: 8px;">🎭</div>
+            <div style="font-size: 1.5rem; font-weight: 600; color: #C2185B;">CycleTrack</div>
+            <div style="font-size: 1rem; color: #880E4F; margin-top: 4px;">Version 1.1.0</div>
+            <div style="font-size: 0.85rem; color: #AD1457; margin-top: 8px;">Dynamische Fruchtbarkeitsberechnung mit individueller Lutealphase</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Daten importieren</div>
+            <p style="margin-bottom: 16px; color: var(--text-secondary); font-size: 0.9rem;">
+                Unterstützt Femometer CSV Export
+            </p>
+            <div class="form-group">
+                <input type="file" id="importFile" accept=".csv,.json" onchange="handleImport(event)">
+            </div>
+            <textarea id="importText" rows="6" placeholder="Oder CSV hier einfügen..." style="width: 100%; padding: 12px; border: 2px solid var(--divider); border-radius: 12px; font-family: monospace; font-size: 0.85rem; margin-bottom: 12px;"></textarea>
+            <button class="btn" onclick="importFromText()">Importieren</button>
+            <div id="importResult" style="margin-top: 12px; display: none;"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Backup erstellen</div>
+            <button class="btn btn-secondary btn-small" onclick="ImportExport.exportToCSV()" style="margin-bottom: 8px;">Als CSV exportieren</button>
+            <button class="btn btn-secondary btn-small" onclick="ImportExport.exportToJSON()">Als JSON sichern</button>
+        </div>
+    </div>
+
+    <!-- IMPORT/EXPORT VIEW (legacy - hidden) -->
+    <div id="importExportView" class="container hidden" style="display: none !important;">
         <div class="card">
             <div class="card-title">Daten importieren</div>
             <p style="margin-bottom: 16px; color: var(--text-secondary); font-size: 0.9rem;">
@@ -711,13 +740,12 @@
             </svg>
             <span>Kurve</span>
         </div>
-        <div class="nav-item" onclick="showImportExport()">
+        <div class="nav-item" onclick="showSettings()">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
-            <span>Import</span>
+            <span>Einstellungen</span>
         </div>
     </nav>
 
