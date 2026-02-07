@@ -273,10 +273,9 @@ function calculateNextPeriods(allEntries) {
     result.daysToNext = Math.ceil((nextPeriod - today) / (1000 * 60 * 60 * 24));
 
     // Calculate second period - starts AFTER next period ends + cycle length
-    // Period length (typically 3-5 days from settings)
-    const periodLength = currentData.periodLength || 5;
+    // Predicted period is always 5 days
     const nextPeriodEnd = new Date(nextPeriod);
-    nextPeriodEnd.setDate(nextPeriodEnd.getDate() + periodLength);
+    nextPeriodEnd.setDate(nextPeriodEnd.getDate() + 4); // +4 days = 5 days total (day 0,1,2,3,4)
     
     const nextPeriod2 = new Date(nextPeriodEnd);
     nextPeriod2.setDate(nextPeriod2.getDate() + avgCycle);
@@ -745,11 +744,11 @@ function renderCalendar() {
             dayEl.classList.add('today');
         }
 
-        // Check if this day is within a predicted period window (first 4 days)
+        // Check if this day is within a predicted period window (5 days)
         if (periodPrediction.nextPeriod) {
             const nextPeriodStart = new Date(periodPrediction.nextPeriod);
             const nextPeriodEnd = new Date(nextPeriodStart);
-            nextPeriodEnd.setDate(nextPeriodEnd.getDate() + 3); // 4 days total
+            nextPeriodEnd.setDate(nextPeriodEnd.getDate() + 4); // 5 days total
             
             const currentDate = new Date(dateStr);
             if (currentDate >= nextPeriodStart && currentDate <= nextPeriodEnd) {
@@ -760,7 +759,7 @@ function renderCalendar() {
         if (periodPrediction.nextPeriod2) {
             const nextPeriod2Start = new Date(periodPrediction.nextPeriod2);
             const nextPeriod2End = new Date(nextPeriod2Start);
-            nextPeriod2End.setDate(nextPeriod2End.getDate() + 3); // 4 days total
+            nextPeriod2End.setDate(nextPeriod2End.getDate() + 4); // 5 days total
             
             const currentDate = new Date(dateStr);
             if (currentDate >= nextPeriod2Start && currentDate <= nextPeriod2End) {
