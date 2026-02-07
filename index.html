@@ -693,27 +693,7 @@
         </div>
     </div>
 
-    <!-- IMPORT/EXPORT VIEW (legacy - hidden) -->
-    <div id="importExportView" class="container hidden" style="display: none !important;">
-        <div class="card">
-            <div class="card-title">Daten importieren</div>
-            <p style="margin-bottom: 16px; color: var(--text-secondary); font-size: 0.9rem;">
-                Unterstützt Femometer CSV Export
-            </p>
-            <div class="form-group">
-                <input type="file" id="importFile" accept=".csv,.json" onchange="handleImport(event)">
-            </div>
-            <textarea id="importText" rows="6" placeholder="Oder CSV hier einfügen..." style="width: 100%; padding: 12px; border: 2px solid var(--divider); border-radius: 12px; font-family: monospace; font-size: 0.85rem; margin-bottom: 12px;"></textarea>
-            <button class="btn" onclick="importFromText()">Importieren</button>
-            <div id="importResult" style="margin-top: 12px; display: none;"></div>
-        </div>
-
-        <div class="card">
-            <div class="card-title">Backup erstellen</div>
-            <button class="btn btn-secondary btn-small" onclick="ImportExport.exportToCSV()" style="margin-bottom: 8px;">Als CSV exportieren</button>
-            <button class="btn btn-secondary btn-small" onclick="ImportExport.exportToJSON()">Als JSON sichern</button>
-        </div>
-    </div>
+    <!-- IMPORT/EXPORT VIEW (legacy - removed, now in settings) -->
 
     <!-- NAVIGATION -->
     <nav class="nav">
