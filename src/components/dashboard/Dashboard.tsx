@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { Plus, Calendar as CalendarIcon, Activity, Droplets, Thermometer, ChevronRight } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, Activity, Droplets, Thermometer, ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Progress } from "@/components/ui/progress"
@@ -21,20 +21,9 @@ export default function Dashboard() {
 
     if (!isLoaded || !today) return <div className="p-8 text-center text-muted-foreground animate-pulse">Lade CycleTrack...</div>;
 
-    // --- Calculations (Same as before) ---
     const predictions = calculatePredictions(data);
     const todaysDateStr = today.toISOString().split('T')[0];
     const todayEntry = data.entries[todaysDateStr];
-
-    const periodEntries = Object.values(data.entries)
-        .filter(e => e.period)
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const lastPeriod = periodEntries.length > 0 ? periodEntries[periodEntries.length - 1] : null;
-
-    let cycleDay = 0;
-    if (lastPeriod) {
-        cycleDay = Math.floor((today.getTime() - new Date(lastPeriod.date).getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    }
 
     const daysToPeriod = predictions.nextPeriodStart
         ? Math.ceil((predictions.nextPeriodStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
@@ -45,14 +34,37 @@ export default function Dashboard() {
         : null;
 
     // Status Logic
-    let status = { title: 'Zyklus-Phase', subtitle: 'Normal', color: 'bg-secondary', text: 'text-secondary-foreground', icon: Activity };
+    let status = { title: 'Zyklus-Phase', subtitle: 'Follikelphase', color: 'bg-secondary', text: 'text-secondary-foreground', icon: Activity };
 
-    if (cycleDay > 0 && cycleDay <= 5) {
-        status = { title: 'Periode', subtitle: `Tag ${cycleDay}`, color: 'bg-primary/10', text: 'text-primary', icon: Droplets };
-    } else if (daysToOvulation !== null && daysToOvulation > -2 && daysToOvulation <= 1) {
-        status = { title: 'Eisprung', subtitle: 'Steht bevor', color: 'bg-chart-4/20', text: 'text-chart-4', icon: Thermometer };
-    } else if (daysToOvulation !== null && daysToOvulation > 1 && daysToOvulation <= 5) {
-        status = { title: 'Fruchtbar', subtitle: 'Hohe Chance', color: 'bg-chart-2/20', text: 'text-chart-2', icon: Activity };
+    if (predictions.currentPhase === 'menstruation') {
+        status = { title: 'Periode', subtitle: `Tag ${predictions.cycleDay}`, color: 'bg-primary/10', text: 'text-primary', icon: Droplets };
+    } else if (predictions.currentPhase === 'ovulatory') {
+        const isPeak = todayEntry?.lhTest === 'peak';
+        status = {
+            title: 'Fruchtbar',
+            subtitle: isPeak ? 'Maximale Chance' : 'Hohe Chance',
+            color: isPeak ? 'bg-purple-100' : 'bg-green-100',
+            text: isPeak ? 'text-purple-700' : 'text-green-700',
+            icon: Thermometer
+        };
+    } else if (predictions.currentPhase === 'luteal') {
+        status = {
+            title: 'Lutealphase',
+            subtitle: predictions.isOvulationConfirmed ? 'Eisprung bestätigt' : 'Nach Eisprung',
+            color: 'bg-orange-50',
+            text: 'text-orange-700',
+            icon: predictions.isOvulationConfirmed ? CheckCircle2 : Activity
+        };
+    }
+
+    // Custom suggestion / Warning
+    let suggestion = "";
+    if (predictions.isOvulationConfirmed) {
+        suggestion = "Temperaturanstieg erkannt. Fruchtbares Fenster geschlossen.";
+    } else if (todayEntry?.lhTest === 'positive' || todayEntry?.lhTest === 'peak') {
+        suggestion = "LH-Anstieg! Eisprung voraussichtlich in 24-36h.";
+    } else if (daysToOvulation !== null && daysToOvulation > 0 && daysToOvulation <= 3) {
+        suggestion = "Fruchtbare Tage beginnen. Beste Chance für GV.";
     }
 
     const container = {
@@ -67,12 +79,12 @@ export default function Dashboard() {
     return (
         <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 gap-3 pb-24">
 
-            {/* 1. Main Status Card (Square, Top Left) */}
+            {/* 1. Main Status Card */}
             <motion.div variants={item} className="col-span-1 row-span-1">
                 <Card className={`h-full border-none shadow-sm ${status.color}`}>
                     <CardHeader className="p-4 pb-2">
                         <CardDescription className={status.text}>{status.title}</CardDescription>
-                        <CardTitle className={`text-2xl font-bold ${status.text}`}>{status.subtitle}</CardTitle>
+                        <CardTitle className={`text-xl font-bold ${status.text} leading-tight`}>{status.subtitle}</CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
                         <status.icon className={`h-8 w-8 ${status.text} opacity-80`} />
@@ -80,90 +92,64 @@ export default function Dashboard() {
                 </Card>
             </motion.div>
 
-            {/* 2. Quick Action (Square, Top Right) */}
+            {/* 2. Quick Action / Prediction */}
             <motion.div variants={item} className="col-span-1 row-span-1">
-                <Link href="/entry">
-                    <Card className="h-full border-dashed border-2 shadow-none hover:bg-muted/50 transition-colors flex flex-col items-center justify-center p-4 cursor-pointer active:scale-95 transition-transform">
-                        <div className="bg-primary/10 p-3 rounded-full mb-2">
-                            <Plus className="h-6 w-6 text-primary" />
-                        </div>
-                        <span className="font-medium text-sm text-muted-foreground">Eintrag</span>
-                    </Card>
-                </Link>
+                <Card className="h-full shadow-sm border p-4 flex flex-col justify-between">
+                    <div className="text-xs text-muted-foreground uppercase">Nächste Periode</div>
+                    <div className="text-2xl font-bold text-primary">
+                        {daysToPeriod !== null ? daysToPeriod : '?'} <span className="text-sm font-normal text-muted-foreground">Tage</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                        {predictions.nextPeriodStart ? predictions.nextPeriodStart.toLocaleDateString('de-DE', { day: 'numeric', month: 'short' }) : '-'}
+                    </div>
+                </Card>
             </motion.div>
 
-            {/* 3. Cycle Progress (Wide) */}
+            {/* 3. Suggestion / Warning Box */}
+            {suggestion && (
+                <motion.div variants={item} className="col-span-2">
+                    <div className={`p-3 rounded-xl border flex items-start gap-3 ${predictions.isOvulationConfirmed ? 'bg-green-50 border-green-200 text-green-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+                        {predictions.isOvulationConfirmed ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+                        <span className="text-sm font-medium">{suggestion}</span>
+                    </div>
+                </motion.div>
+            )}
+
+            {/* 4. Cycle Progress */}
             <motion.div variants={item} className="col-span-2">
                 <Card className="shadow-sm border-none bg-white">
-                    <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-                        <div className="space-y-1">
-                            <CardTitle className="text-base">Nächste Periode</CardTitle>
-                            <CardDescription>
-                                {predictions.nextPeriodStart ? predictions.nextPeriodStart.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' }) : 'Keine Daten'}
-                            </CardDescription>
-                        </div>
-                        <div className="text-2xl font-bold text-primary">
-                            {daysToPeriod !== null ? daysToPeriod : '?'} <span className="text-xs font-normal text-muted-foreground">Tage</span>
-                        </div>
+                    <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-base flex justify-between">
+                            <span>Zyklus-Fortschritt</span>
+                            <span className="text-muted-foreground font-normal">Tag {predictions.cycleDay}</span>
+                        </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-2">
-                        <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-primary rounded-full"
-                                style={{ width: `${Math.min(((cycleDay) / (data.cycleLength || 28)) * 100, 100)}%` }}
-                            />
+                        <Progress value={Math.min(((predictions.cycleDay) / (data.cycleLength || 28)) * 100, 100)} className="h-2" />
+                        <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                            <span>Tag 1</span>
+                            <span>~Tag {data.cycleLength || 28}</span>
                         </div>
                     </CardContent>
                 </Card>
             </motion.div>
 
-            {/* 4. Stats Grid (2 items) */}
-            <motion.div variants={item} className="col-span-1">
-                <Card className="shadow-sm p-3">
-                    <div className="text-xs text-muted-foreground uppercase">Zyklustag</div>
-                    <div className="text-xl font-bold">{cycleDay || '-'}</div>
-                </Card>
-            </motion.div>
-            <motion.div variants={item} className="col-span-1">
-                <Card className="shadow-sm p-3">
-                    <div className="text-xs text-muted-foreground uppercase">Ø Länge</div>
-                    <div className="text-xl font-bold">{calculateAverageCycleLength(data.entries)}</div>
-                </Card>
-            </motion.div>
-
-            {/* 5. Today's Log Summary (If exists) */}
+            {/* 5. Today's Log Summary */}
             {todayEntry && (
                 <motion.div variants={item} className="col-span-2">
                     <Card className="bg-muted/30 border-none">
                         <CardHeader className="p-4 pb-2">
                             <CardTitle className="text-sm font-medium">Heute</CardTitle>
                         </CardHeader>
-                        <CardContent className="p-4 pt-0 flex gap-2 overflow-x-auto">
-                            {todayEntry.temperature && <Badge variant="outline" className="bg-background">{todayEntry.temperature}°C</Badge>}
-                            {todayEntry.period && <Badge variant="secondary" className="bg-primary/20 text-primary hover:bg-primary/30">{todayEntry.period}</Badge>}
+                        <CardContent className="p-4 pt-0 flex flex-wrap gap-2">
+                            {todayEntry.temperature && <Badge variant="outline" className="bg-background">{todayEntry.temperature}°C {todayEntry.excludeTemp ? '(Ignoriert)' : ''}</Badge>}
+                            {todayEntry.period && <Badge variant="secondary" className="bg-primary/20 text-primary">{todayEntry.period}</Badge>}
+                            {todayEntry.lhTest && <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200">LH: {todayEntry.lhTest}</Badge>}
+                            {todayEntry.sex && <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-200">{todayEntry.sex === 'unprotected' ? '❤️ GV' : '🛡️ GV'}</Badge>}
                         </CardContent>
                     </Card>
                 </motion.div>
             )}
-
-            {/* 6. Calendar Teaser (Wide) */}
-            <motion.div variants={item} className="col-span-2 mt-2">
-                <Link href="/calendar">
-                    <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-border/50 hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-primary/10 p-2 rounded-lg">
-                                <CalendarIcon className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                                <div className="font-semibold text-sm">Kalender öffnen</div>
-                                <div className="text-xs text-muted-foreground">Details & Verlauf</div>
-                            </div>
-                        </div>
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                </Link>
-            </motion.div>
-
         </motion.div>
     );
 }

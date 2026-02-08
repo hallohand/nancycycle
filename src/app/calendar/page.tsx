@@ -15,20 +15,23 @@ export default function CalendarPage() {
     const selectedDateStr = date?.toISOString().split('T')[0];
     const selectedEntry = selectedDateStr ? data.entries[selectedDateStr] : null;
 
-    // Modifiers for coloring the calendar
+    // Modifiers
     const periodDays: Date[] = [];
     const fertileDays: Date[] = [];
     const ovulationDays: Date[] = [];
+    const sexDays: Date[] = [];
+    const lhPeakDays: Date[] = [];
 
     // Populate from history
     Object.values(data.entries).forEach(e => {
         const d = new Date(e.date);
         if (e.period) periodDays.push(d);
+        if (e.sex) sexDays.push(d);
+        if (e.lhTest === 'peak' || e.lhTest === 'positive') lhPeakDays.push(d);
     });
 
-    // Populate from predictions (future)
+    // Populate from predictions
     if (predictions.nextPeriodStart) {
-        // Just a simple estimation for visualization: next 5 days
         for (let i = 0; i < 5; i++) {
             const d = new Date(predictions.nextPeriodStart);
             d.setDate(d.getDate() + i);
@@ -57,12 +60,16 @@ export default function CalendarPage() {
                         modifiers={{
                             period: periodDays,
                             fertile: fertileDays,
-                            ovulation: ovulationDays
+                            ovulation: ovulationDays,
+                            sex: sexDays,
+                            lh: lhPeakDays
                         }}
                         modifiersClassNames={{
                             period: 'bg-primary/20 text-primary font-bold',
                             fertile: 'bg-green-100 text-green-700 font-bold',
-                            ovulation: 'bg-green-200 text-green-800 font-bold border-2 border-green-500 rounded-full'
+                            ovulation: 'bg-green-200 text-green-800 font-bold border-2 border-green-500 rounded-full',
+                            sex: 'after:content-["❤️"] after:absolute after:-top-1 after:-right-1 after:text-[8px]',
+                            lh: 'border-2 border-purple-400'
                         }}
                         className="rounded-xl border shadow-sm p-4 bg-white"
                     />
@@ -78,12 +85,19 @@ export default function CalendarPage() {
                 </CardHeader>
                 <CardContent className="p-4">
                     {selectedEntry ? (
-                        <div className="flex flex-wrap gap-2">
-                            {selectedEntry.temperature && <Badge variant="outline" className="bg-background">{selectedEntry.temperature}°C</Badge>}
-                            {selectedEntry.period && <Badge className="bg-primary/20 text-primary hover:bg-primary/30">Periode: {selectedEntry.period}</Badge>}
-                            {selectedEntry.lhTest && <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-200">LH: {selectedEntry.lhTest}</Badge>}
-                            {selectedEntry.cervix && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200">{selectedEntry.cervix}</Badge>}
-                            {selectedEntry.notes && <p className="w-full text-sm text-muted-foreground mt-2 bg-white/50 p-2 rounded-lg">{selectedEntry.notes}</p>}
+                        <div className="flex flex-col gap-3">
+                            <div className="flex flex-wrap gap-2">
+                                {selectedEntry.temperature && <Badge variant="outline" className="bg-background">{selectedEntry.temperature}°C {selectedEntry.excludeTemp && '(Ausgeklammert)'}</Badge>}
+                                {selectedEntry.period && <Badge className="bg-primary/20 text-primary hover:bg-primary/30">Periode: {selectedEntry.period}</Badge>}
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                {selectedEntry.lhTest && <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200">LH: {selectedEntry.lhTest}</Badge>}
+                                {selectedEntry.sex && <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-200">GV: {selectedEntry.sex === 'unprotected' ? 'Ungeschützt' : 'Geschützt'}</Badge>}
+                                {selectedEntry.cervix && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200">Schleim: {selectedEntry.cervix}</Badge>}
+                            </div>
+
+                            {selectedEntry.notes && <p className="text-sm text-muted-foreground mt-1 bg-white/50 p-2 rounded-lg">{selectedEntry.notes}</p>}
                         </div>
                     ) : (
                         <div className="text-sm text-muted-foreground text-center py-4">Keine Einträge für diesen Tag.</div>
@@ -92,7 +106,8 @@ export default function CalendarPage() {
             </Card>
 
             <div className="flex gap-4 justify-center text-xs text-muted-foreground">
-                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-primary/20 rounded-full"></div> Periode</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-purple-400 rounded-full"></div> LH</div>
+                <div className="flex items-center gap-1">❤️ GV</div>
                 <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-100 rounded-full"></div> Fruchtbar</div>
             </div>
         </div>
