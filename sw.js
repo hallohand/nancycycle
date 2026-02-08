@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cycletrack-v8'; // v1.2.5 - Fixed period calculation (always 5 days) and fertile window logic
+const CACHE_NAME = 'cycletrack-v9'; // v1.2.6 - Fixed period 2 calculation (end of period 1 + cycle length)
 const urlsToCache = [
   '/cycletrack/',
   '/cycletrack/index.html',

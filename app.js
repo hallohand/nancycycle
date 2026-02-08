@@ -2,7 +2,7 @@
 // Modularer Aufbau für bessere Wartbarkeit
 
 const STORAGE_KEY = 'cycletrack_data';
-const APP_VERSION = '1.2.5';
+const APP_VERSION = '1.2.6';
 
 // Global state
 let currentData = loadData();
@@ -624,17 +624,17 @@ function calculatePredictions() {
     const lutealPhase = currentData.lutealPhase || 14;
     const periodLength = 5; // Fixed to 5 days as requested
 
-    // Calculate periods - FIXED: consecutive cycles
-    // Cycle 1: Period starts avgCycle days after last period
+    // Calculate periods
+    // Periode 1: Start = letzte Periode + Zykluslänge
     const nextPeriod = new Date(lastPeriod);
     nextPeriod.setDate(nextPeriod.getDate() + avgCycle);
     result.nextPeriodStart = new Date(nextPeriod);
     result.nextPeriodEnd = new Date(nextPeriod);
     result.nextPeriodEnd.setDate(result.nextPeriodEnd.getDate() + periodLength - 1);
 
-    // Cycle 2: Next period starts avgCycle days after previous period START (not end)
-    const period2 = new Date(nextPeriod);
-    period2.setDate(period2.getDate() + avgCycle);
+    // Periode 2: Start = Ende von Periode 1 + Zykluslänge
+    const period2 = new Date(result.nextPeriodEnd);
+    period2.setDate(period2.getDate() + 1 + avgCycle - periodLength);
     result.period2Start = new Date(period2);
     result.period2End = new Date(period2);
     result.period2End.setDate(result.period2End.getDate() + periodLength - 1);
@@ -647,8 +647,8 @@ function calculatePredictions() {
     ovulation2.setDate(ovulation2.getDate() - lutealPhase);
 
     // Cycle 3 for when both ovulations are in the past
-    const period3 = new Date(period2);
-    period3.setDate(period3.getDate() + avgCycle);
+    const period3 = new Date(result.period2End);
+    period3.setDate(period3.getDate() + 1 + avgCycle - periodLength);
     const ovulation3 = new Date(period3);
     ovulation3.setDate(ovulation3.getDate() - lutealPhase);
 
