@@ -51,7 +51,8 @@ export default function SettingsPage() {
         reader.onload = (event) => {
             try {
                 const csvText = event.target?.result as string;
-                const { entries, count } = parseFemometerCSV(csvText);
+                const entries = parseFemometerCSV(csvText);
+                const count = Object.keys(entries).length;
 
                 if (count > 0) {
                     setAllEntries(entries);
