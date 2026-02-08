@@ -2,7 +2,7 @@
 // Modularer Aufbau für bessere Wartbarkeit
 
 const STORAGE_KEY = 'cycletrack_data';
-const APP_VERSION = '1.2.4';
+const APP_VERSION = '1.2.5';
 
 // Global state
 let currentData = loadData();
@@ -606,78 +606,77 @@ function calculatePredictions() {
         fertile2Start: null, fertile2End: null, ovulation2: null,
         ovulationNext: null, ovulationNextAfter: null
     };
-    
+
     const today = new Date();
+    today.setHours(12, 0, 0, 0); // Fix timezone
+
     const allEntries = Object.values(currentData.entries);
-    const periodEntries = allEntries.filter(e => e.period).sort((a, b) => 
+    const periodEntries = allEntries.filter(e => e.period).sort((a, b) =>
         new Date(a.date) - new Date(b.date)
     );
-    
+
     if (periodEntries.length === 0) return result;
-    
+
     const lastPeriod = new Date(periodEntries[periodEntries.length - 1].date);
+    lastPeriod.setHours(12, 0, 0, 0);
+
     const avgCycle = calculateAverageCycleLength();
     const lutealPhase = currentData.lutealPhase || 14;
-    const periodLength = currentData.periodLength || 5;
-    
-    // Calculate periods
+    const periodLength = 5; // Fixed to 5 days as requested
+
+    // Calculate periods - FIXED: consecutive cycles
+    // Cycle 1: Period starts avgCycle days after last period
     const nextPeriod = new Date(lastPeriod);
     nextPeriod.setDate(nextPeriod.getDate() + avgCycle);
-    result.nextPeriodStart = nextPeriod;
+    result.nextPeriodStart = new Date(nextPeriod);
     result.nextPeriodEnd = new Date(nextPeriod);
     result.nextPeriodEnd.setDate(result.nextPeriodEnd.getDate() + periodLength - 1);
-    
-    const period2 = new Date(result.nextPeriodEnd);
-    period2.setDate(period2.getDate() + 1 + avgCycle - periodLength);
-    result.period2Start = period2;
+
+    // Cycle 2: Next period starts avgCycle days after previous period START (not end)
+    const period2 = new Date(nextPeriod);
+    period2.setDate(period2.getDate() + avgCycle);
+    result.period2Start = new Date(period2);
     result.period2End = new Date(period2);
     result.period2End.setDate(result.period2End.getDate() + periodLength - 1);
-    
-    // Calculate ovulations for both cycles
+
+    // Calculate ovulations (period start - luteal phase)
     const ovulation1 = new Date(nextPeriod);
     ovulation1.setDate(ovulation1.getDate() - lutealPhase);
-    
+
     const ovulation2 = new Date(period2);
     ovulation2.setDate(ovulation2.getDate() - lutealPhase);
-    
-    const period3 = new Date(result.period2End);
-    period3.setDate(period3.getDate() + 1 + avgCycle - periodLength);
+
+    // Cycle 3 for when both ovulations are in the past
+    const period3 = new Date(period2);
+    period3.setDate(period3.getDate() + avgCycle);
     const ovulation3 = new Date(period3);
     ovulation3.setDate(ovulation3.getDate() - lutealPhase);
-    
-    // Determine which ovulation is the NEXT one (in the future)
-    if (ovulation1 >= today) {
-        // First ovulation is still in the future
-        result.ovulationNext = ovulation1;
-        result.ovulationNextAfter = ovulation2;
-        result.ovulation1 = ovulation1;
-        result.fertile1Start = new Date(ovulation1);
-        result.fertile1Start.setDate(result.fertile1Start.getDate() - 5);
-        result.fertile1End = ovulation1;
-    } else if (ovulation2 >= today) {
-        // First ovulation is past, second is next
-        result.ovulationNext = ovulation2;
-        result.ovulationNextAfter = ovulation3;
-        result.ovulation1 = ovulation1; // Keep for calendar display
-        result.fertile1Start = new Date(ovulation1);
-        result.fertile1Start.setDate(result.fertile1Start.getDate() - 5);
-        result.fertile1End = ovulation1;
-    } else {
-        // Both are past, use third
-        result.ovulationNext = ovulation3;
-        result.ovulationNextAfter = null;
-        result.ovulation1 = ovulation1;
-        result.fertile1Start = new Date(ovulation1);
-        result.fertile1Start.setDate(result.fertile1Start.getDate() - 5);
-        result.fertile1End = ovulation1;
-    }
-    
-    // Always set ovulation2 and fertile2 for calendar display
-    result.ovulation2 = ovulation2;
+
+    // Fertile windows: 5 days before ovulation until ovulation day
+    // Fertile window 1
+    result.ovulation1 = new Date(ovulation1);
+    result.fertile1Start = new Date(ovulation1);
+    result.fertile1Start.setDate(result.fertile1Start.getDate() - 5);
+    result.fertile1End = new Date(ovulation1);
+
+    // Fertile window 2
+    result.ovulation2 = new Date(ovulation2);
     result.fertile2Start = new Date(ovulation2);
     result.fertile2Start.setDate(result.fertile2Start.getDate() - 5);
-    result.fertile2End = ovulation2;
-    
+    result.fertile2End = new Date(ovulation2);
+
+    // Determine which ovulation is the NEXT one (in the future)
+    if (ovulation1 >= today) {
+        result.ovulationNext = ovulation1;
+        result.ovulationNextAfter = ovulation2;
+    } else if (ovulation2 >= today) {
+        result.ovulationNext = ovulation2;
+        result.ovulationNextAfter = ovulation3;
+    } else {
+        result.ovulationNext = ovulation3;
+        result.ovulationNextAfter = null;
+    }
+
     return result;
 }
 

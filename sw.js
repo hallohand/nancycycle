@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cycletrack-v7'; // v1.2.4 - Fixed timezone issues in calendar rendering
+const CACHE_NAME = 'cycletrack-v8'; // v1.2.5 - Fixed period calculation (always 5 days) and fertile window logic
 const urlsToCache = [
   '/cycletrack/',
   '/cycletrack/index.html',
