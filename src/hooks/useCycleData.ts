@@ -30,6 +30,16 @@ export function useCycleData() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
     };
 
+    const setAllEntries = (newEntries: Record<string, CycleEntry>) => {
+        const updatedData = { ...data, entries: { ...data.entries, ...newEntries } };
+        setData(updatedData);
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
+        } catch (e) {
+            console.error("Save failed", e);
+        }
+    }
+
     const updateEntry = (date: string, entry: Partial<CycleEntry>) => {
         const newEntries = { ...data.entries };
         const existing = newEntries[date] || { date };
@@ -76,6 +86,7 @@ export function useCycleData() {
         data,
         isLoaded,
         updateEntry,
+        setAllEntries,
         deleteEntry,
         updateSettings,
         importData

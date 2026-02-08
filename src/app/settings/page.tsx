@@ -1,17 +1,19 @@
 'use client';
 import { useCycleData } from '@/hooks/useCycleData';
-import { useState } from 'react';
-import { Trash2, Download, Upload, Save } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Trash2, Download, Upload, Save, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { parseFemometerCSV } from '@/lib/importer';
 
 export default function SettingsPage() {
-    const { data, importData, updateSettings } = useCycleData();
+    const { data, importData, updateSettings, setAllEntries } = useCycleData();
     const [importText, setImportText] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleExportJSON = () => {
         const json = JSON.stringify(data, null, 2);
@@ -25,7 +27,7 @@ export default function SettingsPage() {
         toast.success("Backup heruntergeladen");
     };
 
-    const handleImport = () => {
+    const handleImportJSON = () => {
         if (!importText) return;
         try {
             const count = importData(importText);
@@ -34,6 +36,32 @@ export default function SettingsPage() {
         } catch (e) {
             toast.error("Fehler beim Importieren. Überprüfe das Format.");
         }
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target?.result as string;
+            if (text) {
+                try {
+                    const entries = parseFemometerCSV(text);
+                    const count = Object.keys(entries).length;
+                    if (count === 0) {
+                        toast.error("Keine gültigen Einträge gefunden.");
+                        return;
+                    }
+                    setAllEntries(entries);
+                    toast.success(`${count} Femometer-Einträge importiert! 🎉`);
+                } catch (err) {
+                    console.error(err);
+                    toast.error("Fehler beim Lesen der CSV-Datei.");
+                }
+            }
+        };
+        reader.readAsText(file);
     };
 
     return (
@@ -63,32 +91,54 @@ export default function SettingsPage() {
 
             <Card className="border-none shadow-sm">
                 <CardHeader>
-                    <CardTitle className="text-lg">Daten-Verwaltung</CardTitle>
+                    <CardTitle className="Daten-Import & Export">Daten-Verwaltung</CardTitle>
                     <CardDescription>Deine Daten gehören dir. Exportiere oder importiere sie jederzeit.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <Button variant="outline" className="w-full justify-start gap-2" onClick={handleExportJSON}>
-                        <Download className="w-4 h-4" /> Backup herunterladen (JSON)
-                    </Button>
+                    <div className="space-y-2">
+                        <Label className="font-semibold">Sicherung (JSON)</Label>
+                        <Button variant="outline" className="w-full justify-start gap-2" onClick={handleExportJSON}>
+                            <Download className="w-4 h-4" /> Backup speichern
+                        </Button>
+                    </div>
 
-                    <div className="pt-4 border-t">
-                        <Label className="mb-2 block">Import</Label>
+                    <div className="pt-4 border-t space-y-4">
+                        <div className="space-y-2">
+                            <Label className="font-semibold">Femometer Import (CSV)</Label>
+                            <div className="flex gap-2">
+                                <Button className="w-full gap-2 bg-rose-100 text-rose-700 hover:bg-rose-200" onClick={() => fileInputRef.current?.click()}>
+                                    <FileSpreadsheet className="w-4 h-4" /> CSV-Datei wählen
+                                </Button>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept=".csv"
+                                    onChange={handleFileUpload}
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground">Original .csv Datei aus der Femometer App.</p>
+                        </div>
+                    </div>
+
+                    <div className="pt-4 border-t space-y-2">
+                        <Label className="font-semibold">Wiederherstellen (JSON)</Label>
                         <Textarea
                             value={importText}
                             onChange={(e) => setImportText(e.target.value)}
                             className="mb-2 font-mono text-xs"
-                            placeholder='Füge hier den Inhalt deiner Backup-Datei ein...'
-                            rows={4}
+                            placeholder='JSON Inhalt hier einfügen...'
+                            rows={3}
                         />
-                        <Button className="w-full gap-2" onClick={handleImport} disabled={!importText}>
-                            <Upload className="w-4 h-4" /> Daten importieren
+                        <Button className="w-full gap-2" variant="outline" onClick={handleImportJSON} disabled={!importText}>
+                            <Upload className="w-4 h-4" /> JSON Importieren
                         </Button>
                     </div>
                 </CardContent>
             </Card>
 
             <div className="text-center text-xs text-muted-foreground pt-8">
-                CycleTrack v2.1 • Privacy First
+                CycleTrack v3.0 • Privacy First
             </div>
         </div>
     );
