@@ -82,6 +82,11 @@ export function useCycleData() {
         }
     };
 
+    const clearAllData = () => {
+        const resetData = { ...DEFAULT_CYCLE_DATA, entries: {} };
+        saveData(resetData);
+    };
+
     return {
         data,
         isLoaded,
@@ -89,6 +94,7 @@ export function useCycleData() {
         setAllEntries,
         deleteEntry,
         updateSettings,
-        importData
+        importData,
+        clearAllData
     };
 }
