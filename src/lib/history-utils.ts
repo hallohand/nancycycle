@@ -24,15 +24,12 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
 
     let currentEntries: CycleEntry[] = [];
     let currentStart = '';
+    let lastPeriodDateInCurrentCycle: string | null = null;
 
     // Helper to finish a cycle
     const finishCycle = (end: string | undefined, nextStart: string | undefined) => {
         if (!currentStart) return;
 
-        // Filter entries that actually belong to this cycle (based on date)
-        // Although the loop logic already groups them.
-
-        // Determine Length
         let length = 0;
         let endDate = end;
 
@@ -42,61 +39,43 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
             d.setDate(d.getDate() - 1);
             endDate = d.toISOString().split('T')[0];
         } else {
-            // Up to today or max of entries
-            const lastEntryDate = currentEntries[currentEntries.length - 1]?.date || currentStart;
             const today = new Date().toISOString().split('T')[0];
-            // If cycle started long ago (e.g. > 40 days) and no new period, maybe assume it ended at today?
-            // Or just count days until today.
+            // Ensure length is at least the span of entries if future
             length = Math.round((new Date(today).getTime() - new Date(currentStart).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+            // Sanity check: if the last entry was months ago, clamp length? 
+            // For now, let it be "up to today" as it is the "Current Cycle".
         }
 
-        // Calculate Period Length (days with flow) within the first 10 days of cycle?
-        // Or just count total period days in this group.
         const periodLength = currentEntries.filter(e => e.period).length;
 
         // Generate Days Array for Visualization
-        // We need an entry for EVERY day from start to end (or length).
         const visDays = [];
         for (let i = 0; i < length; i++) {
             const date = new Date(currentStart);
             date.setDate(date.getDate() + i);
             const iso = date.toISOString().split('T')[0];
 
-            // Find entry if exists
             const entry = entriesMap[iso];
 
-            // Determine status
-            // Period: if entry has period or if it's within predicted period? Use recorded only.
             const isPeriod = !!entry?.period;
-
-            // Fertile/Ovulation: Harder strictly from history without stats?
-            // Use recorded signs (LH, Sex, Mucus) OR fallback to standard calculation relative to cycle end/start?
-            // The screenshot shows colored dots. Femometer calculates it retrospectively.
-            // Let's use simple logic: Ovulation = CycleLength - 14. Fertile = Ovu-5..Ovu.
-            // If Cycle Length is crazy (e.g. 60), this might look weird, but it's what "Calculated" means.
-
-            // Exception: If we have CONFIRMED Ovulation in entry (e.g. from engine analysis), use that.
-            // But here we are separating logic. Let's stick to simple "Standard Model" for history visualization unless data says otherwise.
 
             let isOvulation = false;
             let isFertile = false;
 
-            // Prediction Logic for history
+            // Standard Model Retrospective
             const ovuDayIndex = length - 14;
-            if (i === ovuDayIndex - 1) isOvulation = true; // 0-indexed day, but length-14 is e.g. 28-14=14 (15th day). 
-            // Wait: 28 day cycle. Ovu on day 14 (Index 13).
-            // i=13. 14 = 28-14. Correct.
+            if (length > 20) { // Only calculate for reasonable cycles
+                if (i === ovuDayIndex - 1) isOvulation = true;
+                if (i >= ovuDayIndex - 5 && i <= ovuDayIndex) isFertile = true;
+            }
 
-            if (i >= ovuDayIndex - 5 && i <= ovuDayIndex) isFertile = true;
-
-            // Override with actual data signs
-            if (entry?.lhTest === 'peak') isOvulation = true; // LH peak is close to Ovu
-            // Actually Peak is day BEFORE Ovu usually.
+            if (entry?.lhTest === 'peak') isOvulation = true;
 
             visDays.push({
                 date: iso,
                 isPeriod,
-                isFertile: isFertile && !isPeriod, // Period overrides fertile color usually
+                isFertile: isFertile && !isPeriod,
                 isOvulation,
                 hasSex: !!entry?.sex
             });
@@ -114,25 +93,59 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
     }
 
     entries.forEach((e, i) => {
-        const prev = i > 0 ? entries[i - 1] : null;
-        // Detect Period Start
-        // Heuristic: Has Period AND (No prev period OR gap > 10 days)
-        const isPeriodStart = e.period && (!prev?.period || (new Date(e.date).getTime() - new Date(prev.date).getTime() > 1000 * 60 * 60 * 24 * 10));
+        // Decide if this entry STARTS a new cycle
+        // It must be a Period entry.
+        // AND it must be "far enough" from the previous period block of the CURRENT cycle.
 
-        if (isPeriodStart) {
+        let isNewCycle = false;
+
+        if (e.period) {
+            if (!currentStart) {
+                isNewCycle = true;
+            } else {
+                // We have a current cycle running.
+                // Check distance from currentStart
+                const diffFromStart = (new Date(e.date).getTime() - new Date(currentStart).getTime()) / (1000 * 60 * 60 * 24);
+
+                // If we are very close to start (e.g. within 7 days), it's part of the first period.
+                if (diffFromStart < 14) {
+                    isNewCycle = false;
+                } else {
+                    // It is > 14 days from start.
+                    // Check distance from LAST recorded period entry to handle spotty logs?
+                    // If I had a period on day 20 (spotting), and now day 28 (real period).
+                    // If diff is > 10 days from last spotting?
+
+                    const diffFromLastPeriod = lastPeriodDateInCurrentCycle
+                        ? (new Date(e.date).getTime() - new Date(lastPeriodDateInCurrentCycle).getTime()) / (1000 * 60 * 60 * 24)
+                        : diffFromStart;
+
+                    if (diffFromLastPeriod > 10) {
+                        isNewCycle = true;
+                    }
+                }
+            }
+        }
+
+        if (isNewCycle) {
             if (currentStart) {
-                finishCycle(prev?.date, e.date);
+                finishCycle(undefined, e.date);
             }
             currentStart = e.date;
             currentEntries = [];
+            lastPeriodDateInCurrentCycle = null;
         }
 
         if (currentStart) {
             currentEntries.push(e);
+            if (e.period) {
+                // Update last period date, BUT only if it makes sense?
+                // If we iterate chronologically, yes.
+                lastPeriodDateInCurrentCycle = e.date;
+            }
         }
     });
 
-    // Finish last cycle
     if (currentStart) {
         finishCycle(undefined, undefined);
     }
