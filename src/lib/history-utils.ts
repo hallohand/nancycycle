@@ -7,7 +7,6 @@ export interface CycleGroup {
     length?: number;
     periodLength: number;
     entries: CycleEntry[];
-    // Computed day statuses for the visualization bar
     days: {
         date: string;
         isPeriod: boolean;
@@ -15,6 +14,33 @@ export interface CycleGroup {
         isOvulation: boolean;
         hasSex: boolean;
     }[];
+}
+
+// Helper: Parse YYYY-MM-DD as Local Date at Noon to avoid Timezone shifts
+function parseDateSafe(dateStr: string): Date {
+    // Append T12:00:00 to ensure we are in the middle of the day, 
+    // avoiding midnight shifts due to T00:00:00Z being previous day in Western hemisphere 
+    // or T00:00:00 Local being shifted if not careful.
+    // Actually: new Date('YYYY-MM-DD') is UTC.
+    // We want to work with timestamps that represent differences in DAYS reliably.
+    // Best way: treat everything as UTC for calculation, or force Noon Local.
+
+    // Let's use UTC for calculations to be safe from DST shifts too.
+    const d = new Date(dateStr);
+    // This is UTC midnight.
+    return d;
+}
+
+function diffDays(d1: string, d2: string): number {
+    const t1 = parseDateSafe(d1).getTime();
+    const t2 = parseDateSafe(d2).getTime();
+    return Math.round((t1 - t2) / (1000 * 60 * 60 * 24));
+}
+
+function addDays(dateStr: string, days: number): string {
+    const d = parseDateSafe(dateStr);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
 }
 
 
@@ -26,7 +52,6 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
     let currentStart = '';
     let lastPeriodDateInCurrentCycle: string | null = null;
 
-    // Helper to finish a cycle
     const finishCycle = (end: string | undefined, nextStart: string | undefined) => {
         if (!currentStart) return;
 
@@ -34,28 +59,23 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
         let endDate = end;
 
         if (nextStart) {
-            length = Math.round((new Date(nextStart).getTime() - new Date(currentStart).getTime()) / (1000 * 60 * 60 * 24));
-            const d = new Date(nextStart);
-            d.setDate(d.getDate() - 1);
-            endDate = d.toISOString().split('T')[0];
+            length = diffDays(nextStart, currentStart);
+            endDate = addDays(nextStart, -1);
         } else {
             const today = new Date().toISOString().split('T')[0];
-            // Ensure length is at least the span of entries if future
-            length = Math.round((new Date(today).getTime() - new Date(currentStart).getTime()) / (1000 * 60 * 60 * 24)) + 1;
-
-            // Sanity check: if the last entry was months ago, clamp length? 
-            // For now, let it be "up to today" as it is the "Current Cycle".
+            // If today < currentStart (impossible if sorted, but safety)
+            if (diffDays(today, currentStart) < 0) {
+                length = currentEntries.length; // Fallback
+            } else {
+                length = diffDays(today, currentStart) + 1;
+            }
         }
 
         const periodLength = currentEntries.filter(e => e.period).length;
 
-        // Generate Days Array for Visualization
         const visDays = [];
         for (let i = 0; i < length; i++) {
-            const date = new Date(currentStart);
-            date.setDate(date.getDate() + i);
-            const iso = date.toISOString().split('T')[0];
-
+            const iso = addDays(currentStart, i);
             const entry = entriesMap[iso];
 
             const isPeriod = !!entry?.period;
@@ -63,9 +83,8 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
             let isOvulation = false;
             let isFertile = false;
 
-            // Standard Model Retrospective
             const ovuDayIndex = length - 14;
-            if (length > 20) { // Only calculate for reasonable cycles
+            if (length > 20) {
                 if (i === ovuDayIndex - 1) isOvulation = true;
                 if (i >= ovuDayIndex - 5 && i <= ovuDayIndex) isFertile = true;
             }
@@ -93,35 +112,45 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
     }
 
     entries.forEach((e, i) => {
-        // Decide if this entry STARTS a new cycle
-        // It must be a Period entry.
-        // AND it must be "far enough" from the previous period block of the CURRENT cycle.
-
         let isNewCycle = false;
 
         if (e.period) {
+            // Ignore 'spotting' as cycle starter?
+            // User feedback is key. Usually Spotting is NOT Day 1.
+            // Let's prevent spotting from STARTING a new cycle, unless it's the only thing we have.
+            // But if we are in a cycle, spotting is just part of it.
+
+            const isSpotting = e.period === 'spotting';
+
             if (!currentStart) {
+                // If strictly spotting at very beginning, maybe wait? 
+                // But for now, any period starts the first cycle.
                 isNewCycle = true;
             } else {
-                // We have a current cycle running.
-                // Check distance from currentStart
-                const diffFromStart = (new Date(e.date).getTime() - new Date(currentStart).getTime()) / (1000 * 60 * 60 * 24);
+                const dayDiff = diffDays(e.date, currentStart);
 
-                // If we are very close to start (e.g. within 7 days), it's part of the first period.
-                if (diffFromStart < 14) {
+                // Rule 1: Must be > 14 days from start
+                if (dayDiff < 14) {
                     isNewCycle = false;
                 } else {
-                    // It is > 14 days from start.
-                    // Check distance from LAST recorded period entry to handle spotty logs?
-                    // If I had a period on day 20 (spotting), and now day 28 (real period).
-                    // If diff is > 10 days from last spotting?
+                    // Rule 2: Must be > 10 days from last recorded period flow
+                    const lastPeriodGap = lastPeriodDateInCurrentCycle
+                        ? diffDays(e.date, lastPeriodDateInCurrentCycle)
+                        : dayDiff;
 
-                    const diffFromLastPeriod = lastPeriodDateInCurrentCycle
-                        ? (new Date(e.date).getTime() - new Date(lastPeriodDateInCurrentCycle).getTime()) / (1000 * 60 * 60 * 24)
-                        : diffFromStart;
-
-                    if (diffFromLastPeriod > 10) {
-                        isNewCycle = true;
+                    if (lastPeriodGap > 10) {
+                        // It qualifies time-wise.
+                        // Check if it is just 'spotting'
+                        if (isSpotting) {
+                            // Spotting at end of cycle (pre-menstrual) should NOT start new cycle immediately?
+                            // Usually spotting precedes period.
+                            // So if we see spotting > 14 days later, it might be the start of next cycle's bleed.
+                            // But typically Day 1 is Red Flow.
+                            // CycleTrack convention: Let's assume start on spotting is OK if gap matches.
+                            isNewCycle = true;
+                        } else {
+                            isNewCycle = true;
+                        }
                     }
                 }
             }
@@ -139,8 +168,6 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
         if (currentStart) {
             currentEntries.push(e);
             if (e.period) {
-                // Update last period date, BUT only if it makes sense?
-                // If we iterate chronologically, yes.
                 lastPeriodDateInCurrentCycle = e.date;
             }
         }
