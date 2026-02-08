@@ -128,8 +128,19 @@ export default function CalendarPage() {
                                 period: { backgroundColor: '#fb7185', color: 'white', borderRadius: '0.3rem' }, // rose-400
                                 fertile: { backgroundColor: '#a5f3fc', color: '#0e7490', borderRadius: '50%' }, // cyan-200
                                 ovulation: { border: '2px solid #fbbf24', backgroundColor: '#fef3c7', borderRadius: '50%', color: '#b45309' }, // amber
+                                sex: { outline: '2px solid #e11d48', outlineOffset: '-2px', borderRadius: '20%' }, // red ring for sex? Or use the emoji pseudo-element trick again?
+                                // The previous emoji trick was cleaner: after:content-["❤️"]
+                                // But classNames modifiers support is better in Shadcn/DayPicker for that.
+                                // Let's use modifiersClassNames for sex if possible? 
+                                // modifiersStyles doesn't support pseudo elements easily.
+                                // BUT `classNames` prop on Calendar does not map modifiers to classes directly in new API?
+                                // Actually DayPicker v8 uses `modifiersClassNames`.
+                                // Let's try to add modifiersClassNames alongside modifiersStyles.
                                 predictedPeriod: { border: '1px dashed #fb7185', color: '#e11d48', borderRadius: '0.3rem' },
                                 predictedFertile: { backgroundColor: '#ecfeff', border: '1px dashed #22d3ee', borderRadius: '50%' },
+                            }}
+                            modifiersClassNames={{
+                                sex: 'after:content-["❤️"] after:absolute after:-top-1 after:-right-1 after:text-[8px]'
                             }}
                         />
                     </CardContent>

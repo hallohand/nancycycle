@@ -180,14 +180,13 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
 
                     if (lastPeriodGap > 10) {
                         // It qualifies time-wise.
-                        // Check if it is just 'spotting'
+                        // CycleTrack / Femometer convention:
+                        // Spotting usually does NOT start a cycle. Red blood (Light/Medium/Heavy) does.
+                        // So if isSpotting is true, we should ignore it as a "Cycle Starter"
+                        // unless it is the ONLY thing we have for weeks? 
+                        // But better to be strict: Spotting != Day 1.
                         if (isSpotting) {
-                            // Spotting at end of cycle (pre-menstrual) should NOT start new cycle immediately?
-                            // Usually spotting precedes period.
-                            // So if we see spotting > 14 days later, it might be the start of next cycle's bleed.
-                            // But typically Day 1 is Red Flow.
-                            // CycleTrack convention: Let's assume start on spotting is OK if gap matches.
-                            isNewCycle = true;
+                            isNewCycle = false;
                         } else {
                             isNewCycle = true;
                         }
@@ -195,6 +194,18 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
                 }
             }
         }
+
+        // Special Case: First ever entry
+        if (!currentStart && e.period && e.period !== 'spotting') {
+            isNewCycle = true;
+        }
+        // If first entry IS spotting, we do NOT start a cycle?
+        // Then it will be appended to "previous" (non-existent) or just ignored?
+        // If currentStart is null, and we have entries, strict logic says they belong to "no cycle" or "previous unknown".
+        // But `finishCycle` needs `currentStart`.
+        // If we encounter spotting at start of sorted list, and no currentStart:
+        // We probably should just wait for first real period.
+        // OR we treat it as part of 'current entries' without a start date? No.
 
         if (isNewCycle) {
             if (currentStart) {
@@ -207,7 +218,7 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
 
         if (currentStart) {
             currentEntries.push(e);
-            if (e.period) {
+            if (e.period && e.period !== 'spotting') {
                 lastPeriodDateInCurrentCycle = e.date;
             }
         }
