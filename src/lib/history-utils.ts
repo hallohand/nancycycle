@@ -73,23 +73,63 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
 
         const periodLength = currentEntries.filter(e => e.period).length;
 
+        // Find Ovu Day Index
+        let ovuDayIndex = -1;
+
+        // 1. Check for LH Peak
+        // Find index of LH Peak
+        for (let i = 0; i < length; i++) {
+            const iso = addDays(currentStart, i);
+            const entry = entriesMap[iso];
+            if (entry?.lhTest === 'peak' || entry?.lhTest === 'positive') {
+                // Assume ovulation 1 day after LAST positive/peak? Or first?
+                // Simple rule: First Peak + 1. 
+                // Let's iterate found entires properly? 
+                // Actually we can just find it in currentEntries list if easier, 
+                // but mapping index 'i' is better.
+                if (ovuDayIndex === -1) {
+                    ovuDayIndex = i + 1; // Ovulation day
+                }
+            }
+        }
+
+        // 2. Fallback to Length - 14
+        if (ovuDayIndex === -1 && length >= 20) {
+            ovuDayIndex = length - 14;
+            // 0-indexed: Day 14 is index 13. 
+            // If length 28. Ovu is 14 (Day 15?). 28-14 = 14.
+            // If length 28, cycle is [0..27]. 
+            // Ovu usually Day 14 (index 13)?? No, Day 14 before end.
+            // If Start Jan 1. End Jan 28. Length 28.
+            // Next start Jan 29.
+            // Luteal phase starts after Ovu.
+            // Ovu = End - 14. 
+            // Jan 28 - 14 = Jan 14. 
+            // Index 13 (Day 14). Correct.
+            // But code was `i === ovuDayIndex - 1`. 
+            // If index is 14, i==13 is true. 
+            // So code effectively used index 13.
+
+            // Let's standardize: ovuDayIndex is the 0-based index of ovulation day.
+            ovuDayIndex = length - 14 - 1;
+        }
+
         const visDays = [];
         for (let i = 0; i < length; i++) {
             const iso = addDays(currentStart, i);
             const entry = entriesMap[iso];
 
             const isPeriod = !!entry?.period;
-
             let isOvulation = false;
             let isFertile = false;
 
-            const ovuDayIndex = length - 14;
-            if (length > 20) {
-                if (i === ovuDayIndex - 1) isOvulation = true;
+            if (ovuDayIndex !== -1) {
+                if (i === ovuDayIndex) isOvulation = true;
                 if (i >= ovuDayIndex - 5 && i <= ovuDayIndex) isFertile = true;
             }
 
-            if (entry?.lhTest === 'peak') isOvulation = true;
+            // Override if manual LH Peak (visual only? no, logic above handles it)
+            // But ensure we show the star if strictly calculated.
 
             visDays.push({
                 date: iso,
