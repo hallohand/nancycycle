@@ -7,6 +7,8 @@ import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Heart } from 'lucide-react';
 
+import { APP_VERSION } from '@/lib/version';
+
 export default function HistoryPage() {
     const { data, isLoaded } = useCycleData();
 
@@ -19,7 +21,10 @@ export default function HistoryPage() {
 
     return (
         <div className="space-y-6 pb-24 px-4 pt-6">
-            <h2 className="text-2xl font-bold tracking-tight">Meine Zyklen</h2>
+            <div className="flex justify-between items-baseline">
+                <h2 className="text-2xl font-bold tracking-tight">Meine Zyklen</h2>
+                <span className="text-xs text-muted-foreground font-mono">v{APP_VERSION}</span>
+            </div>
 
             <div className="space-y-4">
                 {cycles.map((cycle, i) => (
