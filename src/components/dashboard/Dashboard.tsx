@@ -19,10 +19,14 @@ export default function Dashboard() {
         setToday(new Date());
     }, []);
 
-    if (!isLoaded || !today) return <div className="p-8 text-center text-muted-foreground animate-pulse">Lade CycleTrack Engine...</div>;
+    // Must be before ANY early return (Rules of Hooks)
+    const engine = useMemo(() => {
+        if (!data?.entries || Object.keys(data.entries).length === 0) return null;
+        return runEngine(data);
+    }, [data]);
 
-    // Use the new Engine directly (memoized to avoid expensive recalc)
-    const engine = useMemo(() => runEngine(data), [data]);
+    if (!isLoaded || !today || !engine) return <div className="p-8 text-center text-muted-foreground animate-pulse">Lade CycleTrack Engine...</div>;
+
     const current = engine.currentCycle;
     const prediction = engine.predictions.today;
     const stats = engine.statistics;
