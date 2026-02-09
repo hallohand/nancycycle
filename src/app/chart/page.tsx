@@ -189,7 +189,7 @@ export default function ChartPage() {
                                             fill={`url(#${area.type === 'period' ? 'periodGradient' : area.type === 'fertile' ? 'fertileGradient' : 'purpleGradient'})`}
                                             fillOpacity={1}
                                             label={{
-                                                value: area.label,
+                                                value: area.type === 'purple' ? '' : area.label,
                                                 position: 'insideBottom',
                                                 fill: area.type === 'period' ? '#ef4444' : area.type === 'fertile' ? '#3b82f6' : '#a855f7',
                                                 fontSize: 10,
@@ -197,6 +197,22 @@ export default function ChartPage() {
                                             }}
                                         />
                                     ))}
+
+                                    {/* Ovulation Markers */}
+                                    {chartData.map((item, idx) => {
+                                        if (item.isOvulation) {
+                                            return (
+                                                <ReferenceLine
+                                                    key={`ovu-${idx}`}
+                                                    x={item.index}
+                                                    stroke="#eab308" // Yellow/Gold
+                                                    strokeDasharray="3 3"
+                                                    label={{ value: '🌼', position: 'top', fill: '#eab308', fontSize: 12 }}
+                                                />
+                                            );
+                                        }
+                                        return null;
+                                    })}
 
                                     <Line
                                         type="monotone"
@@ -207,6 +223,7 @@ export default function ChartPage() {
                                             const { cx, cy, payload } = props;
                                             if (payload.sex) return <circle cx={cx} cy={cy} r={4} fill="var(--rose-500)" stroke="pink" strokeWidth={2} />;
                                             if (payload.lh === 'peak' || payload.lh === 'positive') return <circle cx={cx} cy={cy} r={4} fill="var(--purple-500)" stroke="white" strokeWidth={2} />;
+                                            if (payload.isOvulation) return <circle cx={cx} cy={cy} r={5} fill="#eab308" stroke="white" strokeWidth={2} />; // Gold dot for Ovu
                                             return <circle cx={cx} cy={cy} r={3} fill="var(--primary)" stroke="none" />;
                                         }}
                                         connectNulls
