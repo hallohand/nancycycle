@@ -15,7 +15,7 @@ export default function HistoryPage() {
     const cycles = useMemo(() => {
         if (!data?.entries) return [];
         return groupCycles(data.entries);
-    }, [data]);
+    }, [data?.entries]);
 
     if (!isLoaded) return <div className="p-8 text-center text-muted-foreground">Laden...</div>;
 

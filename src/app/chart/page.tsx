@@ -2,8 +2,8 @@
 import { useCycleData } from '@/hooks/useCycleData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea, ReferenceLine } from 'recharts';
-import { useEffect, useRef, useState } from 'react';
-import { calculatePredictions, runEngine } from '@/lib/cycle-calculations';
+import { useEffect, useRef, useState, useMemo } from 'react';
+import { runEngine } from '@/lib/cycle-calculations';
 
 import { groupCycles } from '@/lib/history-utils'; // Need to import this
 
@@ -115,8 +115,14 @@ export default function ChartPage() {
 
     if (!isLoaded) return <div className="p-8 text-center text-muted-foreground animate-pulse">Laden...</div>;
 
-    // Safe window access for SSR
-    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 375;
+    // SSR-safe window width
+    const [windowWidth, setWindowWidth] = useState(375);
+    useEffect(() => {
+        setWindowWidth(window.innerWidth);
+        const handleResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
     const chartWidth = Math.max(windowWidth, chartData.length * 40);
 
     return (

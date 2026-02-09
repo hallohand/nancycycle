@@ -8,9 +8,10 @@ import { groupCycles } from '@/lib/history-utils';
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { de } from 'date-fns/locale';
 import { addMonths, subMonths } from 'date-fns';
-import { Info, Heart, Thermometer, Droplet, Activity, Plus } from 'lucide-react';
+import { Info, Heart, Thermometer, Droplet, Activity, Plus, Pencil } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { EntryDrawer } from '@/components/entry/EntryDrawer';
 
 export default function CalendarPage() {
     const { data, isLoaded } = useCycleData();
@@ -246,19 +247,27 @@ export default function CalendarPage() {
                                     "{selectedEntry.notes}"
                                 </div>
                             )}
+
+                            {/* Edit button */}
+                            <div className="col-span-2 pt-1">
+                                <EntryDrawer prefillDate={safeSelectedDateStr} onDeleted={() => setIsDetailsOpen(false)}>
+                                    <Button variant="outline" className="w-full">
+                                        <Pencil className="w-4 h-4 mr-2" />
+                                        Eintrag bearbeiten
+                                    </Button>
+                                </EntryDrawer>
+                            </div>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-3">
                             <Info className="w-8 h-8 opacity-30" />
                             <p className="text-sm">Keine Einträge für diesen Tag.</p>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => window.location.href = `/entry?date=${safeSelectedDateStr}`}
-                            >
-                                <Plus className="w-4 h-4 mr-1" />
-                                Eintrag hinzufügen
-                            </Button>
+                            <EntryDrawer prefillDate={safeSelectedDateStr}>
+                                <Button variant="outline" size="sm">
+                                    <Plus className="w-4 h-4 mr-1" />
+                                    Eintrag hinzufügen
+                                </Button>
+                            </EntryDrawer>
                         </div>
                     )}
                 </SheetContent>
