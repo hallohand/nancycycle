@@ -8,7 +8,7 @@ import { runEngine } from '@/lib/cycle-calculations';
 import { groupCycles } from '@/lib/history-utils';
 import { useState, useMemo } from 'react';
 import { de } from 'date-fns/locale';
-import { Info, Heart, Thermometer, Droplet, Activity, ChevronRight } from 'lucide-react';
+import { Info, Heart, Thermometer, Droplet, Activity, Plus } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
@@ -17,7 +17,6 @@ export default function CalendarPage() {
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-    // Calculate Engine (Future) & History (Past)
     const engine = useMemo(() => isLoaded ? runEngine(data) : null, [data, isLoaded]);
     const historyCycles = useMemo(() => isLoaded ? groupCycles(data.entries) : [], [data, isLoaded]);
 
@@ -30,42 +29,19 @@ export default function CalendarPage() {
     const safeSelectedDateStr = date ? toLocalISO(date) : '';
     const selectedEntry = safeSelectedDateStr ? data.entries[safeSelectedDateStr] : null;
 
-    // --- MODIFIERS CALCULATIONS ---
+    // --- Simple Modifiers (no start/middle/end complexity) ---
     const modifiers = useMemo(() => {
         if (!engine) return {};
 
-        const m: any = {
-            // Ranges
-            period_start: [], period_middle: [], period_end: [], period_single: [],
-            predicted_period_start: [], predicted_period_middle: [], predicted_period_end: [], predicted_period_single: [],
-            fertile_start: [], fertile_middle: [], fertile_end: [], fertile_single: [],
-            predicted_fertile_start: [], predicted_fertile_middle: [], predicted_fertile_end: [], predicted_fertile_single: [],
-
-            // Single Days
+        const m: Record<string, Date[]> = {
+            period: [],
+            predicted_period: [],
+            fertile: [],
+            predicted_fertile: [],
             ovulation: [],
             predicted_ovulation: [],
             spotting: [],
             sex: [],
-        };
-
-        const addToRange = (start: Date, end: Date, typePrefix: string) => {
-            const s = start.getTime();
-            const e = end.getTime();
-
-            // Loop through days
-            let current = new Date(start);
-            while (current <= end) {
-                const t = current.getTime();
-                const isStart = t === s;
-                const isEnd = t === e;
-
-                if (isStart && isEnd) m[`${typePrefix}_single`].push(new Date(current));
-                else if (isStart) m[`${typePrefix}_start`].push(new Date(current));
-                else if (isEnd) m[`${typePrefix}_end`].push(new Date(current));
-                else m[`${typePrefix}_middle`].push(new Date(current));
-
-                current.setDate(current.getDate() + 1);
-            }
         };
 
         const parseDate = (dString: string) => {
@@ -73,82 +49,41 @@ export default function CalendarPage() {
             return new Date(y, mo - 1, da);
         };
 
-        // 1. PAST DATA
+        // 1. PAST DATA from history
         historyCycles.forEach(cycle => {
-            // Period Range
-            // We need to group contiguous period days
-            // cycle.days is sorted.
-            let rangeStart: Date | null = null;
-            let rangeEnd: Date | null = null;
-
-            // Helper to flush period range
-            const flushPeriod = () => {
-                if (rangeStart && rangeEnd) addToRange(rangeStart, rangeEnd, 'period');
-                rangeStart = null; rangeEnd = null;
-            };
-
-            // Helper to flush fertile range
-            // Actually fertile window is usually continuous in cycle.days if calculated by us.
-            // But let's be robust.
-
-            // Iterate days for Period
-            cycle.days.forEach((day, idx) => {
-                const localDate = parseDate(day.date);
-
-                // Spotting
-                if (day.isSpotting) m.spotting.push(localDate);
-
-                // Sex
-                if (day.hasSex) m.sex.push(localDate);
-
-                // Ovulation
-                if (day.isOvulation) m.ovulation.push(localDate);
-
-                // Period
-                if (day.isPeriod) {
-                    if (!rangeStart) rangeStart = localDate;
-                    rangeEnd = localDate;
-                } else {
-                    flushPeriod();
-                }
-            });
-            flushPeriod(); // Flush at end of cycle
-
-            // Fertile Window (Past)
-            // It might be continuous.
-            let fStart: Date | null = null;
-            let fEnd: Date | null = null;
-
             cycle.days.forEach(day => {
                 const localDate = parseDate(day.date);
-                if (day.isFertile) {
-                    if (!fStart) fStart = localDate;
-                    fEnd = localDate;
-                } else {
-                    if (fStart && fEnd) addToRange(fStart, fEnd, 'fertile');
-                    fStart = null; fEnd = null;
-                }
+                if (day.isPeriod) m.period.push(localDate);
+                if (day.isFertile) m.fertile.push(localDate);
+                if (day.isOvulation) m.ovulation.push(localDate);
+                if (day.isSpotting) m.spotting.push(localDate);
+                if (day.hasSex) m.sex.push(localDate);
             });
-            if (fStart && fEnd) addToRange(fStart, fEnd, 'fertile');
         });
 
-        // 2. FUTURE DATA
+        // 2. FUTURE DATA from predictions
         engine.predictions.futureCycles.forEach(cycle => {
             const parse = (iso: string) => {
                 const [y, mo, da] = iso.split('-').map(Number);
                 return new Date(y, mo - 1, da);
             };
 
-            // Period
+            // Period range
             const pStart = parse(cycle.cycleStart);
-            const pEnd = new Date(pStart);
-            pEnd.setDate(pEnd.getDate() + (data.periodLength || 5) - 1);
-            addToRange(pStart, pEnd, 'predicted_period');
+            for (let i = 0; i < (data.periodLength || 5); i++) {
+                const d = new Date(pStart);
+                d.setDate(d.getDate() + i);
+                m.predicted_period.push(d);
+            }
 
-            // Fertile
+            // Fertile range
             const fStart = parse(cycle.fertileStart);
             const fEnd = parse(cycle.fertileEnd);
-            addToRange(fStart, fEnd, 'predicted_fertile');
+            let cur = new Date(fStart);
+            while (cur <= fEnd) {
+                m.predicted_fertile.push(new Date(cur));
+                cur.setDate(cur.getDate() + 1);
+            }
 
             // Ovulation
             m.predicted_ovulation.push(parse(cycle.ovulationDate));
@@ -157,136 +92,123 @@ export default function CalendarPage() {
         return m;
     }, [engine, historyCycles, data.periodLength]);
 
-
     const handleDaySelect = (d: Date | undefined) => {
         setDate(d);
         if (d) setIsDetailsOpen(true);
     };
 
-    if (!isLoaded) return <div className="p-8 text-center text-muted-foreground">Laden...</div>;
+    if (!isLoaded) return <div className="p-8 text-center text-muted-foreground animate-pulse">Laden...</div>;
 
     const todayPrediction = engine?.predictions.today;
-    const todayLabel = todayPrediction
-        ? `ZT ${todayPrediction.cycleDay} · ${todayPrediction.phase === 'luteal' ? 'Lutealphase' : todayPrediction.phase === 'follicular' ? 'Follikelphase' : todayPrediction.phase === 'menstruation' ? 'Periode' : 'Eisprungphase'}`
-        : 'Keine Daten';
+    const phaseLabel = todayPrediction
+        ? todayPrediction.phase === 'luteal' ? 'Lutealphase'
+            : todayPrediction.phase === 'follicular' ? 'Follikelphase'
+                : todayPrediction.phase === 'menstruation' ? 'Periode'
+                    : 'Eisprungphase'
+        : '';
 
     return (
-        <div className="flex flex-col h-[calc(100vh-64px)] bg-[#1a1a1a] text-white overflow-hidden">
-            {/* Header / Month Nav is inside Calendar component usually, lets just wrap it carefully */}
-
-            <div className="flex-1 overflow-auto">
+        <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
+            {/* Calendar */}
+            <div className="flex-1 overflow-auto px-2 pt-2">
                 <Calendar
                     mode="single"
                     selected={date}
                     onSelect={handleDaySelect}
                     locale={de}
-                    className="w-full p-0 [&_.rdp-month]:w-full [&_.rdp-table]:w-full [&_.rdp-caption]:justify-between [&_.rdp-caption]:px-4 [&_.rdp-caption]:py-4 [&_.rdp-nav]:px-4"
-                    classNames={{
-                        head_cell: "text-muted-foreground font-normal text-sm pt-4 pb-2",
-                        cell: "p-0 text-center text-sm relative [&:has([aria-selected])]:bg-transparent", // Remove default padding for connected bars
-                        day: "h-10 w-full p-0 font-normal aria-selected:opacity-100 relative z-10", // Increase height
-                        day_today: "font-bold text-cyan-400 relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-cyan-400 after:rounded-full",
-                        day_selected: "bg-white/20 text-white rounded-full",
-                    }}
+                    className="w-full"
                     modifiers={modifiers}
                     modifiersClassNames={{
-                        // Period (Solid Pink)
-                        period_start: "bg-pink-600/90 text-white rounded-l-full",
-                        period_middle: "bg-pink-600/90 text-white rounded-none",
-                        period_end: "bg-pink-600/90 text-white rounded-r-full",
-                        period_single: "bg-pink-600/90 text-white rounded-full",
-
-                        // Predicted Period (Dashed Pink?) - Let's use lighter pink opacity
-                        predicted_period_start: "bg-pink-900/50 text-pink-200 rounded-l-full border-l border-y border-pink-700/50",
-                        predicted_period_middle: "bg-pink-900/50 text-pink-200 rounded-none border-y border-pink-700/50",
-                        predicted_period_end: "bg-pink-900/50 text-pink-200 rounded-r-full border-r border-y border-pink-700/50",
-                        predicted_period_single: "bg-pink-900/50 text-pink-200 rounded-full border border-pink-700/50",
-
-                        // Fertile (Cyan)
-                        fertile_start: "bg-cyan-600/90 text-white rounded-l-full",
-                        fertile_middle: "bg-cyan-600/90 text-white rounded-none",
-                        fertile_end: "bg-cyan-600/90 text-white rounded-r-full",
-                        fertile_single: "bg-cyan-600/90 text-white rounded-full",
-
-                        // Predicted Fertile (Dark Cyan)
-                        predicted_fertile_start: "bg-cyan-900/50 text-cyan-200 rounded-l-full border-l border-y border-cyan-700/50",
-                        predicted_fertile_middle: "bg-cyan-900/50 text-cyan-200 rounded-none border-y border-cyan-700/50",
-                        predicted_fertile_end: "bg-cyan-900/50 text-cyan-200 rounded-r-full border-r border-y border-cyan-700/50",
-                        predicted_fertile_single: "bg-cyan-900/50 text-cyan-200 rounded-full border border-cyan-700/50",
-
-                        // Extras
-                        ovulation: "after:content-['🌼'] after:absolute after:-top-2 after:right-0 after:text-xs z-20",
-                        predicted_ovulation: "after:content-['🌼'] after:opacity-50 after:absolute after:-top-2 after:right-0 after:text-xs z-20",
-                        sex: "before:content-['❤️'] before:absolute before:-top-1 before:-left-1 before:text-[8px] z-20",
-                        spotting: "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-yellow-700 after:rounded-full",
+                        period: "bg-rose-100 text-rose-700 font-semibold rounded-md",
+                        predicted_period: "bg-rose-50 text-rose-400 rounded-md border border-dashed border-rose-200",
+                        fertile: "bg-sky-100 text-sky-700 rounded-md",
+                        predicted_fertile: "bg-sky-50 text-sky-400 rounded-md border border-dashed border-sky-200",
+                        ovulation: "ring-2 ring-amber-400 ring-offset-1 bg-amber-50 text-amber-700 rounded-full font-bold",
+                        predicted_ovulation: "ring-2 ring-amber-300 ring-offset-1 bg-amber-50/50 text-amber-400 rounded-full",
+                        spotting: "bg-orange-50 text-orange-600 rounded-md",
+                        sex: "after:content-['❤️'] after:absolute after:-top-1 after:-right-1 after:text-[8px] after:z-10",
                     }}
                 />
             </div>
 
-            {/* Bottom Summary Panel */}
-            <div className="bg-[#1a1a1a] border-t border-white/10 p-4 pb-8 flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-sm text-gray-400 mb-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-pink-600"></div> Periode</div>
-                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-pink-900/50 border border-pink-700"></div> Prognose</div>
-                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-cyan-600"></div> Fruchtbar</div>
-                    <div className="flex items-center gap-1.5">🌼 Eisprung</div>
+            {/* Bottom Summary */}
+            <div className="border-t bg-muted/30 p-4 pb-6">
+                {/* Legend */}
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3 flex-wrap">
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-rose-200 border border-rose-300"></div> Periode</div>
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-sky-200 border border-sky-300"></div> Fruchtbar</div>
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full ring-2 ring-amber-400 bg-amber-50"></div> Eisprung</div>
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-rose-50 border border-dashed border-rose-300"></div> Prognose</div>
                 </div>
 
+                {/* Today Info */}
                 <div className="flex justify-between items-center">
                     <div>
-                        <div className="text-gray-400 text-xs">Heute, {new Date().toLocaleDateString('de-DE')}</div>
-                        <div className="text-xl font-semibold text-white">{todayLabel}</div>
+                        <div className="text-xs text-muted-foreground">
+                            Heute, {new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })}
+                        </div>
+                        {todayPrediction ? (
+                            <div className="text-lg font-semibold">
+                                ZT {todayPrediction.cycleDay} · {phaseLabel}
+                            </div>
+                        ) : (
+                            <div className="text-lg font-semibold text-muted-foreground">Keine Daten</div>
+                        )}
                     </div>
-                    <ChevronRight className="text-gray-600" />
                 </div>
             </div>
 
-            {/* Details Sheet / Drawer - Reusing previous logic but styled darker if possible */}
+            {/* Details Sheet */}
             <Sheet open={isDetailsOpen && !!date} onOpenChange={setIsDetailsOpen}>
-                <SheetContent side="bottom" className="h-[50vh] rounded-t-3xl p-6 bg-[#1a1a1a] border-white/10 text-white">
+                <SheetContent side="bottom" className="rounded-t-2xl">
                     <SheetHeader className="pb-4">
-                        <SheetTitle className="flex justify-between items-center text-white">
-                            <span>{date?.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                        <SheetTitle>
+                            {date?.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
                         </SheetTitle>
-                        <SheetDescription className="text-gray-400">
-                            Tagesdetails & Einträge
+                        <SheetDescription>
+                            Tagesdetails
                         </SheetDescription>
                     </SheetHeader>
 
                     {selectedEntry ? (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white/5 p-3 rounded-xl flex flex-col items-center justify-center gap-1 border border-white/10">
+                        <div className="grid grid-cols-2 gap-3 px-1">
+                            <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center gap-1">
                                 <Thermometer className="w-5 h-5 text-rose-500" />
-                                <span className="text-sm font-semibold">{selectedEntry.temperature ? `${selectedEntry.temperature}°C` : '-'}</span>
-                                <span className="text-[10px] text-gray-400">Temperatur</span>
+                                <span className="text-sm font-semibold">{selectedEntry.temperature ? `${selectedEntry.temperature}°C` : '–'}</span>
+                                <span className="text-[10px] text-muted-foreground">Temperatur</span>
                             </div>
-                            <div className="bg-white/5 p-3 rounded-xl flex flex-col items-center justify-center gap-1 border border-white/10">
+                            <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center gap-1">
                                 <Activity className="w-5 h-5 text-purple-500" />
-                                <span className="text-sm font-semibold">{selectedEntry.lhTest === 'peak' ? 'PEAK' : selectedEntry.lhTest === 'positive' ? '+' : '-'}</span>
-                                <span className="text-[10px] text-gray-400">LH Test</span>
+                                <span className="text-sm font-semibold">{selectedEntry.lhTest === 'peak' ? 'PEAK' : selectedEntry.lhTest === 'positive' ? '+' : '–'}</span>
+                                <span className="text-[10px] text-muted-foreground">LH Test</span>
                             </div>
-                            <div className="bg-white/5 p-3 rounded-xl flex flex-col items-center justify-center gap-1 border border-white/10">
+                            <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center gap-1">
                                 <Droplet className="w-5 h-5 text-blue-500" />
-                                <span className="text-sm font-semibold capitalize">{selectedEntry.period === 'spotting' ? 'Schmier' : selectedEntry.period || '-'}</span>
-                                <span className="text-[10px] text-gray-400">Blutung</span>
+                                <span className="text-sm font-semibold capitalize">{selectedEntry.period === 'spotting' ? 'Schmier' : selectedEntry.period || '–'}</span>
+                                <span className="text-[10px] text-muted-foreground">Blutung</span>
                             </div>
-                            <div className="bg-white/5 p-3 rounded-xl flex flex-col items-center justify-center gap-1 border border-white/10">
-                                <Heart className={cn("w-5 h-5", selectedEntry.sex ? "text-red-500 fill-red-500" : "text-gray-400")} />
+                            <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center gap-1">
+                                <Heart className={cn("w-5 h-5", selectedEntry.sex ? "text-red-500 fill-red-500" : "text-muted-foreground")} />
                                 <span className="text-sm font-semibold">{selectedEntry.sex ? 'Ja' : 'Nein'}</span>
-                                <span className="text-[10px] text-gray-400">GV</span>
+                                <span className="text-[10px] text-muted-foreground">GV</span>
                             </div>
 
                             {selectedEntry.notes && (
-                                <div className="col-span-2 bg-yellow-900/20 p-3 rounded-xl border border-yellow-700/30 text-sm italic text-yellow-200">
+                                <div className="col-span-2 bg-amber-50 p-3 rounded-xl border border-amber-200 text-sm italic text-amber-800">
                                     "{selectedEntry.notes}"
                                 </div>
                             )}
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-2">
-                            <Info className="w-8 h-8 opacity-20" />
-                            <p>Keine Einträge.</p>
-                            <Button variant="outline" size="sm" className="border-white/20 hover:bg-white/10 hover:text-white" onClick={() => window.location.href = `/entry?date=${safeSelectedDateStr}`}>
+                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-3">
+                            <Info className="w-8 h-8 opacity-30" />
+                            <p className="text-sm">Keine Einträge für diesen Tag.</p>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.location.href = `/entry?date=${safeSelectedDateStr}`}
+                            >
+                                <Plus className="w-4 h-4 mr-1" />
                                 Eintrag hinzufügen
                             </Button>
                         </div>
