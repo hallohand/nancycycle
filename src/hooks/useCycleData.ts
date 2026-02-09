@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CycleData, DEFAULT_CYCLE_DATA, CycleEntry } from '@/lib/types';
+import { rotateLocalBackup, saveIndexedDBSnapshot, debouncedCloudSync } from '@/lib/backup';
 
 const STORAGE_KEY = 'cycletrack_data';
+const LAST_SNAPSHOT_KEY = 'cycletrack_last_snapshot';
 
 export function useCycleData() {
     const [data, setData] = useState<CycleData>(DEFAULT_CYCLE_DATA);
     const [isLoaded, setIsLoaded] = useState(false);
+    const saveCount = useRef(0);
 
     useEffect(() => {
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -26,8 +29,24 @@ export function useCycleData() {
     }, []);
 
     const saveData = (newData: CycleData) => {
+        const json = JSON.stringify(newData);
         setData(newData);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        localStorage.setItem(STORAGE_KEY, json);
+
+        // Backup rotation on every save
+        rotateLocalBackup(json);
+
+        // Debounced cloud sync
+        debouncedCloudSync(newData);
+
+        // IndexedDB snapshot once daily
+        saveCount.current++;
+        const lastSnapshot = localStorage.getItem(LAST_SNAPSHOT_KEY);
+        const today = new Date().toISOString().split('T')[0];
+        if (lastSnapshot !== today) {
+            saveIndexedDBSnapshot(newData);
+            localStorage.setItem(LAST_SNAPSHOT_KEY, today);
+        }
     };
 
     const setAllEntries = (newEntries: Record<string, CycleEntry>) => {

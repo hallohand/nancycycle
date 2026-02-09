@@ -1,20 +1,48 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useCycleData } from '@/hooks/useCycleData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { parseFemometerCSV } from '@/lib/importer';
 import { APP_VERSION, BUILD_DATE } from '@/lib/version';
-import { RefreshCw, Trash2, RotateCcw } from 'lucide-react';
+import { RefreshCw, Trash2, RotateCcw, Cloud, CloudOff, Download, Upload, Shield } from 'lucide-react';
+import {
+    getGistConfig, setGistConfig, clearGistConfig,
+    syncToGist, restoreFromGist,
+    getLocalBackups
+} from '@/lib/backup';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function SettingsPage() {
     const { data, updateSettings, importData, setAllEntries, clearAllData } = useCycleData();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [gistToken, setGistToken] = useState('');
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [isRestoring, setIsRestoring] = useState(false);
+    const [localBackups, setLocalBackups] = useState<{ backup1: any; backup2: any; timestamp: string | null }>({ backup1: null, backup2: null, timestamp: null });
+    const [hasGistToken, setHasGistToken] = useState(false);
+
+    // Load client-only state after mount
+    useEffect(() => {
+        const config = getGistConfig();
+        setGistToken(config.token || '');
+        setHasGistToken(!!config.token);
+        setLocalBackups(getLocalBackups());
+    }, []);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -41,7 +69,6 @@ export default function SettingsPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Simple check for CSV extension
         if (!file.name.endsWith('.csv')) {
             toast.error('Bitte .csv Datei auswählen');
             return;
@@ -79,9 +106,53 @@ export default function SettingsPage() {
     };
 
     const handleClearData = () => {
-        if (confirm('Bist du sicher? Alle Daten werden unwiderruflich gelöscht.')) {
-            clearAllData();
-            toast.success('Alle Daten gelöscht.');
+        clearAllData();
+        toast.success('Alle Daten gelöscht.');
+    };
+
+    // Cloud Backup
+    const handleSaveToken = () => {
+        if (!gistToken.trim()) {
+            clearGistConfig();
+            toast.success('Cloud-Backup deaktiviert');
+            return;
+        }
+        setGistConfig(gistToken.trim());
+        setHasGistToken(true);
+        toast.success('Token gespeichert — automatischer Sync aktiv');
+    };
+
+    const handleManualSync = async () => {
+        setIsSyncing(true);
+        const result = await syncToGist(data);
+        setIsSyncing(false);
+        if (result.success) {
+            toast.success('Cloud-Backup erfolgreich!');
+        } else {
+            toast.error(`Sync fehlgeschlagen: ${result.error}`);
+        }
+    };
+
+    const handleCloudRestore = async () => {
+        setIsRestoring(true);
+        const result = await restoreFromGist();
+        setIsRestoring(false);
+        if (result.data) {
+            importData(JSON.stringify(result.data));
+            toast.success('Daten aus Cloud wiederhergestellt!');
+        } else {
+            toast.error(`Wiederherstellung fehlgeschlagen: ${result.error}`);
+        }
+    };
+
+    const handleRestoreLocalBackup = (which: 1 | 2) => {
+        const backups = getLocalBackups();
+        const backup = which === 1 ? backups.backup1 : backups.backup2;
+        if (backup) {
+            importData(JSON.stringify(backup));
+            toast.success(`Lokales Backup ${which} wiederhergestellt!`);
+        } else {
+            toast.error('Kein Backup verfügbar');
         }
     };
 
@@ -92,7 +163,6 @@ export default function SettingsPage() {
             for (const registration of registrations) {
                 await registration.unregister();
             }
-            // Clear caches
             if ('caches' in window) {
                 const keys = await caches.keys();
                 await Promise.all(keys.map(key => caches.delete(key)));
@@ -142,12 +212,14 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                        <Button variant="outline" onClick={exportData} className="w-full">
+                        <Button variant="outline" onClick={exportData} className="w-full gap-2">
+                            <Download className="w-4 h-4" />
                             Backup erstellen
                         </Button>
                         <div className="relative">
-                            <Button variant="outline" className="w-full">
-                                Backup wiederherstellen
+                            <Button variant="outline" className="w-full gap-2">
+                                <Upload className="w-4 h-4" />
+                                Wiederherstellen
                             </Button>
                             <input
                                 type="file"
@@ -158,6 +230,23 @@ export default function SettingsPage() {
                             />
                         </div>
                     </div>
+
+                    {/* Local Backup Restore */}
+                    {localBackups.timestamp && (
+                        <div className="border-t pt-4 space-y-2">
+                            <Label className="text-xs text-muted-foreground">
+                                Lokales Auto-Backup: {new Date(localBackups.timestamp).toLocaleString('de-DE')}
+                            </Label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button variant="ghost" size="sm" onClick={() => handleRestoreLocalBackup(1)} disabled={!localBackups.backup1}>
+                                    Backup 1 laden
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => handleRestoreLocalBackup(2)} disabled={!localBackups.backup2}>
+                                    Backup 2 laden
+                                </Button>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="border-t pt-4">
                         <Label className="mb-2 block">Femometer Import (.csv)</Label>
@@ -178,10 +267,73 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="border-t pt-4">
-                        <Button variant="destructive" onClick={handleClearData} className="w-full flex items-center gap-2">
-                            <Trash2 className="w-4 h-4" /> Alle Daten löschen
-                        </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" className="w-full flex items-center gap-2">
+                                    <Trash2 className="w-4 h-4" /> Alle Daten löschen
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Alle Daten löschen?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Diese Aktion kann nicht rückgängig gemacht werden. Alle Zyklusdaten, Einträge und Einstellungen werden gelöscht.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleClearData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                        Endgültig löschen
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                     </div>
+                </CardContent>
+            </Card>
+
+            {/* Cloud Backup */}
+            <Card className="border-none shadow-sm bg-white">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Cloud className="w-5 h-5" />
+                        Cloud-Backup
+                    </CardTitle>
+                    <CardDescription>
+                        Sichere deine Daten automatisch als privates GitHub Gist.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="gistToken">GitHub Personal Access Token</Label>
+                        <Input
+                            id="gistToken"
+                            type="password"
+                            value={gistToken}
+                            onChange={(e) => setGistToken(e.target.value)}
+                            placeholder="ghp_..."
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Erstelle ein Token auf github.com/settings/tokens mit dem Scope &quot;gist&quot;.
+                        </p>
+                    </div>
+                    <Button variant="outline" onClick={handleSaveToken} className="w-full">
+                        <Shield className="w-4 h-4 mr-2" />
+                        Token speichern
+                    </Button>
+
+                    {hasGistToken && (
+                        <div className="grid grid-cols-2 gap-2 border-t pt-3">
+                            <Button variant="outline" onClick={handleManualSync} disabled={isSyncing} className="gap-2">
+                                <Cloud className="w-4 h-4" />
+                                {isSyncing ? 'Synce...' : 'Jetzt sichern'}
+                            </Button>
+                            <Button variant="outline" onClick={handleCloudRestore} disabled={isRestoring} className="gap-2">
+                                <Download className="w-4 h-4" />
+                                {isRestoring ? 'Lade...' : 'Aus Cloud laden'}
+                            </Button>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
