@@ -88,6 +88,7 @@ export interface EngineResult {
         state: CycleState;
         ovulationConfirmedDate?: string; // If confirmed
         coverline?: number;
+        coverlineProvisional?: boolean;
     };
     predictions: {
         today: DailyPrediction;

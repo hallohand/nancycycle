@@ -179,6 +179,7 @@ function analyzeCurrent(entries: Record<string, CycleEntry>, currentStart: strin
     let state: CycleState = 'PRE_FERTILE';
     let confirmedOvuDate: string | undefined = undefined;
     let coverline: number | undefined = undefined;
+    let coverlineProvisional = false;
 
     // Find LH Peak
     const lhPeakEntry = cycleEntries.find(e => e.lhTest === 'peak' || e.lhTest === 'positive');
@@ -213,6 +214,15 @@ function analyzeCurrent(entries: Record<string, CycleEntry>, currentStart: strin
         }
     }
 
+    // Provisional coverline: if not confirmed yet but have ≥3 temps, estimate from lowest temps
+    if (!coverline && validTemps.length >= 3) {
+        // Use max of the lowest 6 (or all if fewer) as a provisional coverline
+        const sorted = validTemps.map(e => e.temperature!).sort((a, b) => a - b);
+        const lowTemps = sorted.slice(0, Math.min(6, sorted.length));
+        coverline = Math.max(...lowTemps);
+        coverlineProvisional = true;
+    }
+
     // Determine State if not confirmed
     if (state !== 'OVU_CONFIRMED') {
         if (lhPeakEntry) {
@@ -238,7 +248,8 @@ function analyzeCurrent(entries: Record<string, CycleEntry>, currentStart: strin
         day: diffDays(todayStr, currentStart) + 1,
         state,
         ovulationConfirmedDate: confirmedOvuDate,
-        coverline
+        coverline,
+        coverlineProvisional
     };
 }
 

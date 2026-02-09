@@ -13,6 +13,12 @@ export default function ChartPage() {
     const [phaseAreas, setPhaseAreas] = useState<any[]>([]);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    // Run engine to get coverline
+    const engine = useMemo(() => {
+        if (!data?.entries || Object.keys(data.entries).length === 0) return null;
+        return runEngine(data);
+    }, [data]);
+
     useEffect(() => {
         if (!isLoaded) return;
 
@@ -231,6 +237,22 @@ export default function ChartPage() {
                                         }
                                         return null;
                                     })}
+
+                                    {/* Coverline */}
+                                    {engine?.currentCycle.coverline && (
+                                        <ReferenceLine
+                                            y={engine.currentCycle.coverline}
+                                            stroke={engine.currentCycle.coverlineProvisional ? '#9ca3af' : '#ef4444'}
+                                            strokeDasharray={engine.currentCycle.coverlineProvisional ? '6 4' : '0'}
+                                            strokeWidth={engine.currentCycle.coverlineProvisional ? 1.5 : 2}
+                                            label={{
+                                                value: `${engine.currentCycle.coverline.toFixed(2)}° ${engine.currentCycle.coverlineProvisional ? '(vorläufig)' : 'Coverline'}`,
+                                                position: 'right',
+                                                fill: engine.currentCycle.coverlineProvisional ? '#9ca3af' : '#ef4444',
+                                                fontSize: 10,
+                                            }}
+                                        />
+                                    )}
 
                                     <Line
                                         type="monotone"
