@@ -10,6 +10,7 @@ export interface CycleGroup {
     days: {
         date: string;
         isPeriod: boolean;
+        isSpotting?: boolean;
         isFertile: boolean;
         isOvulation: boolean;
         hasSex: boolean;
@@ -119,7 +120,10 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
             const iso = addDays(currentStart, i);
             const entry = entriesMap[iso];
 
-            const isPeriod = !!entry?.period;
+            // Strict Separation: Spotting is NOT a period.
+            const isSpotting = entry?.period === 'spotting';
+            const isPeriod = !!entry?.period && !isSpotting;
+
             let isOvulation = false;
             let isFertile = false;
 
@@ -134,6 +138,7 @@ export function groupCycles(entriesMap: Record<string, CycleEntry>): CycleGroup[
             visDays.push({
                 date: iso,
                 isPeriod,
+                isSpotting,
                 isFertile: isFertile && !isPeriod,
                 isOvulation,
                 hasSex: !!entry?.sex

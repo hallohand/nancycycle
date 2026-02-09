@@ -41,6 +41,7 @@ export default function CalendarPage() {
 
         const m: any = {
             period: [],
+            spotting: [],
             fertile: [],
             ovulation: [],
             sex: [],
@@ -58,6 +59,7 @@ export default function CalendarPage() {
 
                 if (day.isPeriod) m.period.push(localDate);
                 else {
+                    if (day.isSpotting) m.spotting.push(localDate);
                     // Only show fertile/ovulation if not period
                     if (day.isFertile) m.fertile.push(localDate);
                     if (day.isOvulation) m.ovulation.push(localDate);
@@ -138,6 +140,7 @@ export default function CalendarPage() {
                                 // Let's try to add modifiersClassNames alongside modifiersStyles.
                                 predictedPeriod: { border: '1px dashed #fb7185', color: '#e11d48', borderRadius: '0.3rem' },
                                 predictedFertile: { backgroundColor: '#ecfeff', border: '1px dashed #22d3ee', borderRadius: '50%' },
+                                spotting: { backgroundColor: '#a8a29e', color: 'white', borderRadius: '50%', opacity: 0.8 }, // stone-400
                             }}
                             modifiersClassNames={{
                                 sex: 'after:content-["❤️"] after:absolute after:-top-1 after:-right-1 after:text-[8px]'

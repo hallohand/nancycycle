@@ -32,7 +32,8 @@ export default function ChartPage() {
                 date: new Date(e.date).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' }),
                 temp: e.excludeTemp ? null : e.temperature || null,
                 rawTemp: e.temperature,
-                isPeriod: !!e.period,
+                isPeriod: !!e.period && e.period !== 'spotting',
+                isSpotting: e.period === 'spotting',
                 lh: e.lhTest,
                 sex: e.sex
             };

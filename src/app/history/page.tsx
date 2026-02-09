@@ -49,6 +49,7 @@ export default function HistoryPage() {
                                     // Determine Color
                                     let colorClass = "bg-gray-200"; // Luteal/Normal
                                     if (day.isPeriod) colorClass = "bg-rose-400"; // Period
+                                    else if (day.isSpotting) colorClass = "bg-yellow-700/50"; // Spotting (Brownish)
                                     else if (day.isOvulation) colorClass = "bg-yellow-400 border border-yellow-500 scale-110"; // Ovulation (Pop)
                                     else if (day.isFertile) colorClass = "bg-cyan-300"; // Fertile
 
@@ -70,6 +71,7 @@ export default function HistoryPage() {
             {/* Legend */}
             <div className="flex justify-center gap-4 text-[10px] text-muted-foreground">
                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-400"></div> Periode</div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-700/50"></div> Schmier</div>
                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-cyan-300"></div> Fruchtbar</div>
                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-400"></div> Eisprung</div>
                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-gray-200"></div> Unfruchtbar</div>
