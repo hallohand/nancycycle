@@ -18,6 +18,10 @@ export default function CalendarPage() {
     const [month, setMonth] = useState<Date>(new Date());
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
+    // Swipe animation state
+    const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+    const [isAnimating, setIsAnimating] = useState(false);
+
     // Swipe handling
     const touchStartX = useRef(0);
     const touchStartY = useRef(0);
@@ -30,15 +34,26 @@ export default function CalendarPage() {
     const handleTouchEnd = useCallback((e: React.TouchEvent) => {
         const deltaX = e.changedTouches[0].clientX - touchStartX.current;
         const deltaY = e.changedTouches[0].clientY - touchStartY.current;
-        // Only trigger if horizontal swipe is dominant and > 50px
         if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
-            if (deltaX < 0) {
-                // Swipe left → next month
-                setMonth(prev => addMonths(prev, 1));
-            } else {
-                // Swipe right → previous month
-                setMonth(prev => subMonths(prev, 1));
-            }
+            const direction = deltaX < 0 ? 'left' : 'right';
+            // Trigger slide-out animation
+            setSlideDirection(direction);
+            setIsAnimating(true);
+
+            // After slide-out, change month and slide-in
+            setTimeout(() => {
+                if (direction === 'left') {
+                    setMonth(prev => addMonths(prev, 1));
+                } else {
+                    setMonth(prev => subMonths(prev, 1));
+                }
+                setSlideDirection(direction === 'left' ? 'right' : 'left'); // Enter from opposite side
+
+                setTimeout(() => {
+                    setSlideDirection(null);
+                    setIsAnimating(false);
+                }, 200);
+            }, 150);
         }
     }, []);
 
@@ -54,7 +69,6 @@ export default function CalendarPage() {
     const safeSelectedDateStr = date ? toLocalISO(date) : '';
     const selectedEntry = safeSelectedDateStr ? data.entries[safeSelectedDateStr] : null;
 
-    // --- Simple Modifiers ---
     const modifiers = useMemo(() => {
         if (!engine) return {};
 
@@ -74,7 +88,6 @@ export default function CalendarPage() {
             return new Date(y, mo - 1, da);
         };
 
-        // 1. PAST DATA
         historyCycles.forEach(cycle => {
             cycle.days.forEach(day => {
                 const localDate = parseDate(day.date);
@@ -86,7 +99,6 @@ export default function CalendarPage() {
             });
         });
 
-        // 2. FUTURE DATA
         engine.predictions.futureCycles.forEach(cycle => {
             const parse = (iso: string) => {
                 const [y, mo, da] = iso.split('-').map(Number);
@@ -129,41 +141,48 @@ export default function CalendarPage() {
                     : 'Eisprungphase'
         : '';
 
+    // Slide animation classes
+    const getSlideClass = () => {
+        if (!slideDirection) return 'translate-x-0 opacity-100';
+        if (isAnimating && slideDirection === 'left') return '-translate-x-8 opacity-0';
+        if (isAnimating && slideDirection === 'right') return 'translate-x-8 opacity-0';
+        return 'translate-x-0 opacity-100';
+    };
+
     return (
-        <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
-            {/* Calendar with swipe */}
+        <div className="flex flex-col">
+            {/* Calendar with swipe + animation */}
             <div
-                className="px-2 pt-2"
+                className="px-2 pt-2 overflow-hidden"
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
             >
-                <Calendar
-                    mode="single"
-                    selected={date}
-                    month={month}
-                    onMonthChange={setMonth}
-                    onSelect={handleDaySelect}
-                    locale={de}
-                    className="w-full"
-                    modifiers={modifiers}
-                    modifiersClassNames={{
-                        period: "bg-rose-100 text-rose-700 font-semibold rounded-md",
-                        predicted_period: "bg-rose-50 text-rose-400 rounded-md border border-dashed border-rose-200",
-                        fertile: "bg-sky-100 text-sky-700 rounded-md",
-                        predicted_fertile: "bg-sky-50 text-sky-400 rounded-md border border-dashed border-sky-200",
-                        ovulation: "ring-2 ring-amber-400 ring-offset-1 bg-amber-50 text-amber-700 rounded-full font-bold",
-                        predicted_ovulation: "ring-2 ring-amber-300 ring-offset-1 bg-amber-50/50 text-amber-400 rounded-full",
-                        spotting: "bg-orange-50 text-orange-600 rounded-md",
-                        sex: "after:content-['❤️'] after:absolute after:-top-1 after:-right-1 after:text-[8px] after:z-10",
-                    }}
-                />
+                <div className={`transition-all duration-200 ease-out ${getSlideClass()}`}>
+                    <Calendar
+                        mode="single"
+                        selected={date}
+                        month={month}
+                        onMonthChange={setMonth}
+                        onSelect={handleDaySelect}
+                        locale={de}
+                        className="w-full"
+                        modifiers={modifiers}
+                        modifiersClassNames={{
+                            period: "bg-rose-100 text-rose-700 font-semibold rounded-md",
+                            predicted_period: "bg-rose-50 text-rose-400 rounded-md border border-dashed border-rose-200",
+                            fertile: "bg-sky-100 text-sky-700 rounded-md",
+                            predicted_fertile: "bg-sky-50 text-sky-400 rounded-md border border-dashed border-sky-200",
+                            ovulation: "ring-2 ring-amber-400 ring-offset-1 bg-amber-50 text-amber-700 rounded-full font-bold",
+                            predicted_ovulation: "ring-2 ring-amber-300 ring-offset-1 bg-amber-50/50 text-amber-400 rounded-full",
+                            spotting: "bg-orange-50 text-orange-600 rounded-md",
+                            sex: "after:content-['❤️'] after:absolute after:-top-1 after:-right-1 after:text-[8px] after:z-10",
+                        }}
+                    />
+                </div>
             </div>
 
-            {/* Spacer pushes legend to bottom */}
-            <div className="flex-1" />
-
-            {/* Bottom Summary - pinned to bottom */}
-            <div className="border-t bg-muted/30 p-4 pb-6">
+            {/* Bottom Summary - directly below calendar, no spacer */}
+            <div className="border-t bg-muted/30 p-4 mt-2">
                 {/* Legend */}
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3 flex-wrap">
                     <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-rose-200 border border-rose-300"></div> Periode</div>
@@ -173,19 +192,17 @@ export default function CalendarPage() {
                 </div>
 
                 {/* Today Info */}
-                <div className="flex justify-between items-center">
-                    <div>
-                        <div className="text-xs text-muted-foreground">
-                            Heute, {new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })}
-                        </div>
-                        {todayPrediction ? (
-                            <div className="text-lg font-semibold">
-                                ZT {todayPrediction.cycleDay} · {phaseLabel}
-                            </div>
-                        ) : (
-                            <div className="text-lg font-semibold text-muted-foreground">Keine Daten</div>
-                        )}
+                <div>
+                    <div className="text-xs text-muted-foreground">
+                        Heute, {new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })}
                     </div>
+                    {todayPrediction ? (
+                        <div className="text-lg font-semibold">
+                            ZT {todayPrediction.cycleDay} · {phaseLabel}
+                        </div>
+                    ) : (
+                        <div className="text-lg font-semibold text-muted-foreground">Keine Daten</div>
+                    )}
                 </div>
             </div>
 
