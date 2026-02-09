@@ -5,137 +5,215 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { useEffect, useState } from 'react';
 import { calculatePredictions, runEngine } from '@/lib/cycle-calculations';
 
+import { groupCycles } from '@/lib/history-utils'; // Need to import this
+
 export default function ChartPage() {
     const { data, isLoaded } = useCycleData();
     const [chartData, setChartData] = useState<any[]>([]);
-    const [analysis, setAnalysis] = useState<any>(null);
+    const [phaseAreas, setPhaseAreas] = useState<any[]>([]);
 
     useEffect(() => {
         if (!isLoaded) return;
 
         const entries = Object.values(data.entries).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-        // Find relevant cycle start
-        // We want to show the current cycle or the last finished one if current is empty.
-        const engine = runEngine(data);
-        const currentStart = engine.currentCycle.startDate;
+        // Data Range: Last 6 months (approx 180 days)
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - 6);
+        const relevantEntries = entries.filter(e => new Date(e.date) >= startDate);
 
-        // Filter entries from currentStart
-        const relevantEntries = entries.filter(e => e.date >= currentStart);
+        // 1. Analyze History to get Phase Info (Fertile/Period/Ovulation) for ALL dates
+        const cycles = groupCycles(data.entries);
+        const dayInfoMap = new Map<string, { isPeriod: boolean, isFertile: boolean, isOvulation: boolean }>();
+        cycles.forEach(c => {
+            c.days.forEach(d => {
+                dayInfoMap.set(d.date, {
+                    isPeriod: !!d.isPeriod,
+                    isFertile: !!d.isFertile,
+                    isOvulation: !!d.isOvulation
+                });
+            });
+        });
 
-        setAnalysis(engine);
-
-        const formattedData = relevantEntries.map(e => {
-            const dayDiff = Math.floor((new Date(e.date).getTime() - new Date(currentStart).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        // 2. Prepare Chart Data (Linear Index for XAxis)
+        const formattedData = relevantEntries.map((e, index) => {
+            const info = dayInfoMap.get(e.date) || { isPeriod: !!e.period && e.period !== 'spotting', isFertile: false, isOvulation: false };
             return {
-                day: dayDiff,
-                date: new Date(e.date).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' }),
+                index, // XAxis Key
+                dateStr: e.date,
+                displayDate: new Date(e.date).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' }),
                 temp: e.excludeTemp ? null : e.temperature || null,
                 rawTemp: e.temperature,
-                isPeriod: !!e.period && e.period !== 'spotting',
+                isPeriod: info.isPeriod,
+                isFertile: info.isFertile,
+                isOvulation: info.isOvulation,
                 isSpotting: e.period === 'spotting',
                 lh: e.lhTest,
                 sex: e.sex
             };
         });
-
         setChartData(formattedData);
+
+        // 3. Calculate Phase Blocks
+        const newPhaseAreas: any[] = [];
+        if (formattedData.length > 0) {
+            let currentType: 'period' | 'fertile' | 'purple' = 'purple'; // Default
+            let startIndex = 0;
+
+            const getType = (d: any) => {
+                if (d.isPeriod) return 'period';
+                if (d.isFertile) return 'fertile';
+                return 'purple';
+            };
+
+            currentType = getType(formattedData[0]);
+
+            formattedData.forEach((d, i) => {
+                const type = getType(d);
+                // Check for break in continuity (date gap > 1 day) or type change
+                const prev = formattedData[i - 1];
+                const dateGap = prev ? (new Date(d.dateStr).getTime() - new Date(prev.dateStr).getTime()) > 86400000 * 1.5 : false;
+
+                if (type !== currentType || dateGap) {
+                    // Push previous block
+                    newPhaseAreas.push({
+                        x1: startIndex,
+                        x2: i - 1,
+                        type: currentType,
+                        label: currentType === 'period' ? 'Periode' : currentType === 'fertile' ? 'Fruchtbar' : 'Luteal/Follikel'
+                        // Label logic: "purple" could be Luteal OR Follicular. 
+                        // Simple label: just "Phase"? Or leave empty for purple to reduce clutter.
+                    });
+
+                    // Start new block
+                    currentType = type;
+                    startIndex = i;
+                }
+            });
+            // Push final block
+            newPhaseAreas.push({
+                x1: startIndex,
+                x2: formattedData.length - 1,
+                type: currentType,
+                label: currentType === 'period' ? 'Periode' : currentType === 'fertile' ? 'Fruchtbar' : ''
+            });
+        }
+        setPhaseAreas(newPhaseAreas);
 
     }, [data, isLoaded]);
 
     if (!isLoaded) return <div className="p-8 text-center text-muted-foreground animate-pulse">Laden...</div>;
 
-    const current = analysis?.currentCycle;
+    // Safe window access for SSR
+    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 375;
+    const chartWidth = Math.max(windowWidth, chartData.length * 40);
 
     return (
-        <div className="space-y-4 h-[calc(100vh-160px)] flex flex-col">
-            <Card className="flex-1 flex flex-col border-none shadow-sm h-full">
+        <div className="flex flex-col h-[calc(100vh-160px)]">
+            <Card className="flex-1 flex flex-col border-none shadow-sm h-full overflow-hidden">
                 <CardHeader className="pb-2">
                     <CardTitle>Temperaturkurve</CardTitle>
-                    <CardDescription className="flex items-center gap-2">
-                        {current?.state === 'OVU_CONFIRMED' ? (
-                            <span className="text-green-600 font-medium">Eisprung bestätigt ✅</span>
-                        ) : (
-                            <span>Warte auf Anstieg...</span>
-                        )}
-                        {current?.coverline && <span className="text-xs text-muted-foreground">(Coverline: {current.coverline.toFixed(2)}°C)</span>}
+                    <CardDescription>
+                        Historie & Phasenverlauf
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 min-h-0 pl-0 pb-0 relative">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                            <XAxis
-                                dataKey="day"
-                                tickLine={false}
-                                axisLine={false}
-                                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-                                padding={{ left: 10, right: 10 }}
-                                type="number"
-                                domain={['dataMin', 'dataMax']}
-                                allowDataOverflow={false}
-                            />
-                            <YAxis
-                                domain={[35.5, 37.5]}
-                                tickLine={false}
-                                axisLine={false}
-                                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-                                width={35}
-                                scale="linear"
-                                type="number"
-                                allowDataOverflow={false} // Allow clipping if outside range? Or fit? User said "skala von 35,5 bis 37,5". So fixed.
-                            />
-                            <Tooltip
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                labelStyle={{ color: 'var(--muted-foreground)' }}
-                                formatter={(value: any, name: any, props: any) => {
-                                    if (name === 'temp') return [`${value}°C`, 'Temp'];
-                                    return [value, name];
-                                }}
-                            />
+                <CardContent className="flex-1 min-h-0 pl-0 pb-0 relative overflow-hidden">
+                    {/* Scroll Container */}
+                    <div className="h-full w-full overflow-x-auto overflow-y-hidden scrollbar-hide">
+                        <div style={{ width: chartWidth, height: '100%' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 30 }}>
+                                    <defs>
+                                        <linearGradient id="periodGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#fca5a5" stopOpacity={0.3} />
+                                            <stop offset="100%" stopColor="#fca5a5" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="fertileGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#93c5fd" stopOpacity={0.3} />
+                                            <stop offset="100%" stopColor="#93c5fd" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="purpleGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#d8b4fe" stopOpacity={0.2} />
+                                            <stop offset="100%" stopColor="#d8b4fe" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
 
-                            {/* Coverline Visualization */}
-                            {current?.coverline && (
-                                <ReferenceLine
-                                    y={current.coverline + 0.2}
-                                    stroke="green"
-                                    strokeDasharray="3 3"
-                                    label={{ value: 'Hilfslinie', position: 'right', fill: 'green', fontSize: 10 }}
-                                />
-                            )}
-                            {current?.coverline && (
-                                <ReferenceLine
-                                    y={current.coverline}
-                                    stroke="gray"
-                                    strokeDasharray="3 3"
-                                    label={{ value: 'Basis', position: 'right', fill: 'gray', fontSize: 10 }}
-                                />
-                            )}
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
 
-                            <Line
-                                type="monotone"
-                                dataKey="temp"
-                                stroke="var(--primary)"
-                                strokeWidth={3}
-                                dot={(props: any) => {
-                                    const { cx, cy, payload } = props;
-                                    if (payload.sex) {
-                                        return <circle cx={cx} cy={cy} r={4} fill="var(--rose-500)" stroke="pink" strokeWidth={2} />
-                                    }
-                                    if (payload.lh === 'peak' || payload.lh === 'positive') {
-                                        return <circle cx={cx} cy={cy} r={4} fill="var(--purple-500)" stroke="white" strokeWidth={2} />
-                                    }
-                                    return <circle cx={cx} cy={cy} r={3} fill="var(--primary)" stroke="none" />
-                                }}
-                                connectNulls
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
+                                    <XAxis
+                                        dataKey="index"
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tick={(props) => {
+                                            const payload = props.payload;
+                                            const item = chartData[payload.value];
+                                            if (!item) return null;
+                                            return <text x={props.x} y={Number(props.y) + 15} textAnchor="middle" fill="var(--muted-foreground)" fontSize={10}>{item.displayDate}</text>
+                                        }}
+                                        padding={{ left: 10, right: 10 }}
+                                        type="number"
+                                        domain={['dataMin', 'dataMax']}
+                                        interval={0} // Show all ticks? No, maybe interval calculation needed.
+                                    // ticks={...} ? Let Recharts handle it but use custom tick renderer to show date
+                                    />
 
-                    {/* Legend overlay */}
-                    <div className="absolute top-2 right-4 flex flex-col gap-1 text-[10px] text-muted-foreground bg-white/80 p-2 rounded-lg backdrop-blur-sm">
-                        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-purple-500"></div> LH Positiv</div>
-                        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-500"></div> GV</div>
+                                    <YAxis
+                                        domain={[35.5, 37.5]}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                                        width={35}
+                                        scale="linear"
+                                        type="number"
+                                        allowDataOverflow={true} // Fixed scale
+                                    />
+
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                        labelStyle={{ color: 'var(--muted-foreground)' }}
+                                        labelFormatter={(value) => chartData[value]?.displayDate}
+                                        formatter={(value: any, name: any, props: any) => {
+                                            if (name === 'temp') return [`${value}°C`, 'Temp'];
+                                            return [value, name];
+                                        }}
+                                    />
+
+                                    {/* Phase Backgrounds */}
+                                    {phaseAreas.map((area, idx) => (
+                                        <ReferenceArea
+                                            key={idx}
+                                            x1={area.x1}
+                                            x2={area.x2}
+                                            y1={37.5}
+                                            y2={35.5} // Cover whole height
+                                            fill={`url(#${area.type === 'period' ? 'periodGradient' : area.type === 'fertile' ? 'fertileGradient' : 'purpleGradient'})`}
+                                            fillOpacity={1}
+                                            label={{
+                                                value: area.label,
+                                                position: 'insideBottom',
+                                                fill: area.type === 'period' ? '#ef4444' : area.type === 'fertile' ? '#3b82f6' : '#a855f7',
+                                                fontSize: 10,
+                                                dy: 10
+                                            }}
+                                        />
+                                    ))}
+
+                                    <Line
+                                        type="monotone"
+                                        dataKey="temp"
+                                        stroke="var(--primary)"
+                                        strokeWidth={3}
+                                        dot={(props: any) => {
+                                            const { cx, cy, payload } = props;
+                                            if (payload.sex) return <circle cx={cx} cy={cy} r={4} fill="var(--rose-500)" stroke="pink" strokeWidth={2} />;
+                                            if (payload.lh === 'peak' || payload.lh === 'positive') return <circle cx={cx} cy={cy} r={4} fill="var(--purple-500)" stroke="white" strokeWidth={2} />;
+                                            return <circle cx={cx} cy={cy} r={3} fill="var(--primary)" stroke="none" />;
+                                        }}
+                                        connectNulls
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
