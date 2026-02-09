@@ -119,7 +119,7 @@ function predictFuture(currentStart: string, stats: CycleStatistics, count: numb
             ovulationHigh: addDays(ovuDate, highOffset),
 
             fertileStart: addDays(ovuDate, -5),
-            fertileEnd: addDays(ovuDate, 0)
+            fertileEnd: addDays(ovuDate, 1) // User request: +1 day after Ovulation
         });
 
         // Step for next iteration
