@@ -17,6 +17,8 @@ const NavItem = ({ href, icon: Icon, label, isActive }: { href: string; icon: an
     </Link>
 );
 
+import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
+
 export default function Layout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
 
@@ -65,6 +67,8 @@ export default function Layout({ children }: { children: ReactNode }) {
                 <div className="font-bold text-primary mb-4">CT</div>
                 {/* Desktop Nav Items... */}
             </div>
+
+            <OnboardingWizard />
         </div>
     );
 }

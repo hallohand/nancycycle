@@ -36,6 +36,7 @@ export interface CycleData {
     cycleLength: number; // Fallback / User Setting
     periodLength: number; // Fallback
     lutealPhase: number; // Fallback
+    onboardingCompleted?: boolean;
 }
 
 export const DEFAULT_CYCLE_DATA: CycleData = {
@@ -43,6 +44,7 @@ export const DEFAULT_CYCLE_DATA: CycleData = {
     cycleLength: 28,
     periodLength: 5,
     lutealPhase: 14,
+    onboardingCompleted: false,
 };
 
 // --- Analysis & Prediction Types ---
