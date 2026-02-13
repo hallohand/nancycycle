@@ -153,7 +153,7 @@ export default function CalendarPage() {
     return (
         <div className="flex flex-col h-full bg-background overflow-y-auto">
             {/* Calendar Container */}
-            <div className="p-2 shrink-0">
+            <div className="px-1 pt-0 pb-2 shrink-0">
                 <div
                     className="overflow-hidden"
                     onTouchStart={handleTouchStart}
@@ -162,12 +162,13 @@ export default function CalendarPage() {
                     <div className={`transition-all duration-200 ease-out ${getSlideClass()}`}>
                         <Calendar
                             mode="single"
+                            fixedWeeks
                             selected={date}
                             month={month}
                             onMonthChange={setMonth}
                             onSelect={handleDaySelect}
                             locale={de}
-                            className="w-full h-full [--cell-size:clamp(28px,8vw,38px)] bg-transparent border-none shadow-none"
+                            className="w-full h-full [--cell-size:clamp(30px,9vw,40px)] bg-transparent border-none shadow-none"
                             modifiers={modifiers}
                             modifiersClassNames={{
                                 period: "bg-rose-100 text-rose-700 font-semibold rounded-md",

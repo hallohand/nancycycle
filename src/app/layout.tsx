@@ -43,7 +43,7 @@ export default function RootLayout({
           <AppLock>
             <AppLayout>{children}</AppLayout>
           </AppLock>
-          <Toaster />
+          <Toaster position="top-center" />
           <UpdateNotification />
         </CycleProvider>
       </body>

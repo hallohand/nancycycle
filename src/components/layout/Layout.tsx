@@ -25,13 +25,8 @@ export default function Layout({ children }: { children: ReactNode }) {
     return (
         <div className="min-h-screen bg-background pb-28 md:pb-0 md:pl-20">
             {/* Header (Mobile Only) */}
-            <header className="bg-background/80 backdrop-blur-md border-b sticky top-0 z-40 px-6 py-4 flex justify-between items-center md:hidden">
-                <div>
-                    <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary to-rose-400 bg-clip-text text-transparent">CycleTrack</h1>
-                    <p className="text-xs text-muted-foreground font-medium">
-                        {new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
-                    </p>
-                </div>
+            <header className="bg-background/80 backdrop-blur-md border-b sticky top-0 z-40 px-6 py-3 flex justify-between items-center md:hidden">
+                <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-primary to-rose-400 bg-clip-text text-transparent">CycleTrack</h1>
                 <Link href="/settings">
                     <Button variant="ghost" size="icon" className="rounded-full">
                         <Settings className="w-5 h-5 text-muted-foreground" />
