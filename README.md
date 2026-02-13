@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CycleTrack 🍓🐰
 
-## Getting Started
+**Version:** 0.8.0 (Beta)
 
-First, run the development server:
+CycleTrack ist ein privater, lokaler Zyklus-Tracker, der deine Daten ernst nimmt. Als Progressive Web App (PWA) läuft er direkt auf deinem Gerät und speichert alle sensiblen Gesundheitsdaten ausschließlich lokal (LocalStorage & IndexedDB). Es gibt keinen Cloud-Zwang und kein Tracking durch Dritte.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Datenschutz an erster Stelle:** Alle Daten bleiben auf deinem Gerät.
+- **Offline-First:** Die App funktioniert vollständig ohne Internetverbindung.
+- **Zyklus-Analyse:**
+  - Automatische Vorhersage der nächsten Periode und fruchtbaren Tage.
+  - Berücksichtigung von LH-Tests (Peak/Positiv) und Basaltemperatur (NFP-Ansatz).
+  - Intelligente Erkennung von Zyklusanomalien (z.B. Kurzzyklen).
+- **Umfangreiches Tracking:**
+  - Periode (Stärke + Schmerzen)
+  - Zervixschleim
+  - LH-Tests
+  - Basaltemperatur (mit Störfaktor-Ausblendung)
+  - Symptome & Stimmung
+  - Geschlechtsverkehr
+- **Sicherheit:**
+  - Lokale Verschlüsselung (in Planung)
+  - **App Lock:** Optionaler Schutz durch PIN/Biometrie (FaceID/TouchID) beim App-Start.
+- **Backup:**
+  - Lokale Auto-Backups (Rotation).
+  - Verschlüsselter Cloud-Sync via GitHub Gist (optional).
+  - PDF-Export für Arztbesuche.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Technologie-Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework:** Next.js 15 (App Router)
+- **Styling:** Tailwind CSS + Shadcn UI
+- **State Management:** React Context + Hooks
+- **Persistence:** LocalStorage + IndexedDB
+- **PWA:** `next-pwa`
 
-## Learn More
+## Installation (Local Development)
 
-To learn more about Next.js, take a look at the following resources:
+1. Repository klonen:
+   ```bash
+   git clone https://github.com/hallohand/cycletrack.git
+   cd cycletrack
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. Abhängigkeiten installieren:
+   ```bash
+   npm install
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. Development Server starten:
+   ```bash
+   npm run dev
+   ```
 
-## Deploy on Vercel
+4. Öffne [http://localhost:3000](http://localhost:3000) im Browser.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Security Audit (v0.8.0)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Ein Sicherheits-Audit wurde am 13.02.2026 durchgeführt.
+
+- **Status:** Keine kritischen Vulnerabilities in Dependencies.
+- **Datenhaltung:** Daten werden unverschlüsselt im LocalStorage des Browsers gespeichert.
+  - *Empfehlung:* Schütze dein Gerät immer mit einer PIN oder Biometrie.
+- **App Lock:** Der integrierte App-Lock ist eine UI-Sperre und bietet keinen kryptografischen Schutz der Datenbank. Er verhindert lediglich den schnellen Zugriff durch Dritte bei entsperrtem Gerät.
+
+## Lizenz
+
+Privat / MIT (siehe LICENSE).
