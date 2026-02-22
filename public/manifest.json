@@ -2,7 +2,7 @@
   "name": "CycleTrack - Zyklus Tracker",
   "short_name": "CycleTrack",
   "description": "Privater Zyklus-Tracker mit Temperaturkurve und Fruchtbarkeitsberechnung",
-  "start_url": "/",
+  "start_url": "/cycletrack/",
   "display": "standalone",
   "background_color": "#FFF5F7",
   "theme_color": "#FF6B9D",

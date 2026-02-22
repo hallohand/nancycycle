@@ -5,7 +5,7 @@ import AppLayout from '@/components/layout/Layout';
 export const metadata: Metadata = {
   title: 'CycleTrack',
   description: 'Privater Zyklus-Tracker',
-  manifest: '/manifest.json',
+  manifest: '/cycletrack/manifest.json',
   viewport: {
     width: 'device-width',
     initialScale: 1,
@@ -14,9 +14,9 @@ export const metadata: Metadata = {
   },
   themeColor: '#FF6B9D',
   icons: {
-    icon: '/icon-192.png',
-    shortcut: '/icon-192.png',
-    apple: '/apple-touch-icon.png',
+    icon: '/cycletrack/icon-192.png',
+    shortcut: '/cycletrack/icon-192.png',
+    apple: '/cycletrack/apple-touch-icon.png',
   },
   applicationName: 'CycleTrack',
   appleWebApp: {
