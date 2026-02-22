@@ -1,7 +1,7 @@
 'use client';
 import { useCycleData } from '@/hooks/useCycleData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea, ReferenceLine, Brush } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea, ReferenceLine } from 'recharts';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { runEngine } from '@/lib/cycle-calculations';
 
@@ -11,8 +11,7 @@ export default function ChartPage() {
     const { data, isLoaded } = useCycleData();
     const [chartData, setChartData] = useState<any[]>([]);
     const [phaseAreas, setPhaseAreas] = useState<any[]>([]);
-    const [startIndex, setStartIndex] = useState<number>(0);
-    const [endIndex, setEndIndex] = useState<number>(0);
+
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Run engine to get coverline
@@ -62,11 +61,6 @@ export default function ChartPage() {
             };
         });
         setChartData(formattedData);
-        // Default to showing the last 30 days in the main view
-        if (formattedData.length > 0) {
-            setStartIndex(Math.max(0, formattedData.length - 30));
-            setEndIndex(formattedData.length - 1);
-        }
 
         // 3. Calculate Phase Blocks
         const newPhaseAreas: any[] = [];
@@ -148,12 +142,12 @@ export default function ChartPage() {
                         Historie & Phasenverlauf
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 min-h-0 pl-0 pb-0 relative overflow-hidden flex flex-col">
-                    {/* Main Chart (70%) */}
-                    <div ref={scrollRef} className="flex-1 w-full min-h-0 overflow-x-auto overflow-y-hidden scrollbar-hide">
+                <CardContent className="flex-1 min-h-0 pl-0 pb-0 relative overflow-hidden">
+                    {/* Scrollable Chart */}
+                    <div ref={scrollRef} className="h-full w-full overflow-x-auto overflow-y-hidden scrollbar-hide">
                         <div style={{ width: chartWidth, height: '100%' }}>
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+                                <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 30 }}>
                                     <defs>
                                         <linearGradient id="periodGradient" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="0%" stopColor="#fca5a5" stopOpacity={0.3} />
@@ -268,13 +262,9 @@ export default function ChartPage() {
                                         strokeWidth={3}
                                         dot={(props: any) => {
                                             const { cx, cy, payload } = props;
-
-                                            // Only render dots if they are within the brushed area
-                                            if (payload.index < startIndex || payload.index > endIndex) return null;
-
                                             if (payload.sex) return <circle cx={cx} cy={cy} r={4} fill="var(--rose-500)" stroke="pink" strokeWidth={2} />;
                                             if (payload.lh === 'peak' || payload.lh === 'positive') return <circle cx={cx} cy={cy} r={4} fill="var(--purple-500)" stroke="white" strokeWidth={2} />;
-                                            if (payload.isOvulation) return <circle cx={cx} cy={cy} r={5} fill="#eab308" stroke="white" strokeWidth={2} />; // Gold dot for Ovu
+                                            if (payload.isOvulation) return <circle cx={cx} cy={cy} r={5} fill="#eab308" stroke="white" strokeWidth={2} />;
                                             return <circle cx={cx} cy={cy} r={3} fill="var(--primary)" stroke="none" />;
                                         }}
                                         connectNulls
@@ -283,41 +273,100 @@ export default function ChartPage() {
                             </ResponsiveContainer>
                         </div>
                     </div>
-
-                    {/* Mini-map Chart (30%) */}
-                    <div className="h-[30%] w-full min-h-[80px] mt-2 mb-2 pr-4 pl-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={chartData}>
-                                <Line
-                                    type="monotone"
-                                    dataKey="temp"
-                                    stroke="var(--primary)"
-                                    strokeWidth={1.5}
-                                    dot={false}
-                                    connectNulls
-                                />
-                                <YAxis domain={[35.5, 37.5]} hide />
-                                <Brush
-                                    dataKey="displayDate"
-                                    height={30}
-                                    stroke="var(--primary)"
-                                    fill="var(--background)"
-                                    tickFormatter={() => ""} /* hide text */
-                                    startIndex={startIndex}
-                                    endIndex={endIndex}
-                                    onChange={(newIndex) => {
-                                        if (newIndex.startIndex !== undefined) setStartIndex(newIndex.startIndex);
-                                        if (newIndex.endIndex !== undefined) setEndIndex(newIndex.endIndex);
-                                    }}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
                 </CardContent>
             </Card>
 
+            {/* Zyklusübersicht */}
+            {engine && (() => {
+                const cc = engine.currentCycle;
+                const stats = engine.statistics;
+                const estLen = stats.medianCycleLength || 28;
+                const today = cc.day; // current cycle day
+                const pct = (day: number) => Math.min(100, Math.max(0, ((day - 1) / (estLen - 1)) * 100));
+
+                // Phase ranges
+                const periodEnd = data.periodLength || 5;
+                const fertileStart = cc.ovulationPred ? Math.max(1, Math.round((new Date(cc.ovulationPred.earliest).getTime() - new Date(cc.startDate).getTime()) / 86400000) - 4) : Math.round(estLen * 0.35);
+                const fertileEnd = cc.ovulationPred ? Math.round((new Date(cc.ovulationPred.latest).getTime() - new Date(cc.startDate).getTime()) / 86400000) + 2 : Math.round(estLen * 0.55);
+                const ovuDay = cc.ovulationConfirmedDate
+                    ? Math.round((new Date(cc.ovulationConfirmedDate).getTime() - new Date(cc.startDate).getTime()) / 86400000) + 1
+                    : cc.ovulationPred
+                        ? Math.round((new Date(cc.ovulationPred.mid).getTime() - new Date(cc.startDate).getTime()) / 86400000) + 1
+                        : null;
+
+                const formatDate = (d: string) => new Date(d).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' });
+
+                return (
+                    <div className="px-3 pb-2 pt-1 shrink-0">
+                        {/* Phase Bar */}
+                        <div className="relative h-8 rounded-full overflow-hidden bg-purple-100/40 border border-border/50">
+                            {/* Period */}
+                            <div
+                                className="absolute top-0 bottom-0 rounded-l-full bg-rose-300/50"
+                                style={{ left: '0%', width: `${pct(periodEnd + 1)}%` }}
+                            />
+                            {/* Fertile Window */}
+                            <div
+                                className="absolute top-0 bottom-0 bg-sky-300/40"
+                                style={{ left: `${pct(fertileStart)}%`, width: `${pct(fertileEnd + 1) - pct(fertileStart)}%` }}
+                            />
+                            {/* Ovulation marker */}
+                            {ovuDay && (
+                                <div
+                                    className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-amber-400 border-2 border-amber-600 shadow-sm z-10"
+                                    style={{ left: `calc(${pct(ovuDay)}% - 8px)` }}
+                                    title={cc.ovulationConfirmedDate ? 'Eisprung bestätigt' : 'Eisprung (geschätzt)'}
+                                />
+                            )}
+                            {/* Today marker */}
+                            <div
+                                className="absolute top-0 bottom-0 w-0.5 bg-foreground z-20"
+                                style={{ left: `${pct(today)}%` }}
+                            >
+                                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-foreground" />
+                            </div>
+                        </div>
+
+                        {/* Day Labels */}
+                        <div className="flex justify-between text-[10px] text-muted-foreground mt-1 px-1">
+                            <span>Tag 1</span>
+                            <span className="font-semibold text-foreground">Tag {today}</span>
+                            <span>~{estLen} Tage</span>
+                        </div>
+
+                        {/* Info Pills */}
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
+                                📍 Zyklustag {today}/{estLen}
+                            </span>
+                            {cc.nextPeriodPred && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-[10px] font-medium text-rose-600 border border-rose-200/60">
+                                    🩸 ~{formatDate(cc.nextPeriodPred.mid)}
+                                </span>
+                            )}
+                            {cc.ovulationPred && (
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${cc.ovulationConfirmedDate
+                                    ? 'bg-amber-50 text-amber-700 border-amber-300'
+                                    : 'bg-amber-50/50 text-amber-600 border-amber-200/60'
+                                    }`}>
+                                    {cc.ovulationConfirmedDate ? '✅' : '🌼'} {cc.ovulationConfirmedDate ? 'Eisprung ✓' : `~${formatDate(cc.ovulationPred.mid)}`}
+                                </span>
+                            )}
+                            {cc.coverline && (
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${cc.coverlineProvisional
+                                    ? 'bg-gray-50 text-gray-500 border-gray-200 border-dashed'
+                                    : 'bg-red-50 text-red-600 border-red-200'
+                                    }`}>
+                                    📏 {cc.coverline.toFixed(2)}°C{cc.coverlineProvisional ? ' (vorl.)' : ''}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* Legend */}
-            <div className="flex items-center gap-3 text-[11px] text-muted-foreground px-4 py-2 flex-wrap min-h-[40px] shrink-0">
+            <div className="flex items-center gap-3 text-[11px] text-muted-foreground px-4 py-2 flex-wrap shrink-0">
                 <div className="flex items-center gap-1.5">
                     <div className="w-4 h-0.5 bg-primary rounded"></div>
                     Temperatur
@@ -341,6 +390,6 @@ export default function ChartPage() {
                     </div>
                 )}
             </div>
-        </div >
+        </div>
     );
 }
