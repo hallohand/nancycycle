@@ -122,6 +122,45 @@ export default function CalendarPage() {
             m.predicted_ovulation.push(parse(cycle.ovulationDate));
         });
 
+        // Add current cycle predictions
+        if (engine.currentCycle) {
+            const parse = (iso: string) => {
+                const [y, mo, da] = iso.split('-').map(Number);
+                return new Date(y, mo - 1, da);
+            };
+
+            // Current cycle next period prediction
+            if (engine.currentCycle.nextPeriodPred) {
+                const pStart = parse(engine.currentCycle.nextPeriodPred.mid);
+                for (let i = 0; i < (data.periodLength || 5); i++) {
+                    const d = new Date(pStart);
+                    d.setDate(d.getDate() + i);
+                    m.predicted_period.push(d);
+                }
+            }
+
+            // Current cycle ovulation & fertile window prediction
+            // Only show prediction if not already confirmed
+            if (!engine.currentCycle.ovulationConfirmedDate && engine.currentCycle.ovulationPred) {
+                const oMid = engine.currentCycle.ovulationPred.mid;
+                const oDate = parse(oMid);
+                m.predicted_ovulation.push(oDate);
+
+                // Fertile window: Ovu - 5 to Ovu + 1
+                const fStart = new Date(oDate);
+                fStart.setDate(fStart.getDate() - 5);
+
+                const fEnd = new Date(oDate);
+                fEnd.setDate(fEnd.getDate() + 1);
+
+                let cur = new Date(fStart);
+                while (cur <= fEnd) {
+                    m.predicted_fertile.push(new Date(cur));
+                    cur.setDate(cur.getDate() + 1);
+                }
+            }
+        }
+
         return m;
     }, [engine, historyCycles, data.periodLength]);
 
